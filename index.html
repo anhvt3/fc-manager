@@ -306,6 +306,49 @@
       </div>
     </div>
 
+    <!-- Edit Match Modal -->
+    <div class="modal-overlay" id="modalMatchEdit">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <h2>✏️ Sửa trận đấu</h2>
+        <input type="hidden" id="editMatchId">
+        <div class="form-group">
+          <label class="form-label">Ngày thi đấu</label>
+          <input type="date" class="form-input" id="editMatchDate">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Đối thủ / Loại trận</label>
+          <input type="text" class="form-input" id="editMatchOpponent">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Sân bóng</label>
+          <input type="text" class="form-input" id="editMatchVenue">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kết quả</label>
+          <div class="result-selector">
+            <div class="result-option win" onclick="selectEditResult('Thắng', this)">Thắng ✅</div>
+            <div class="result-option lose" onclick="selectEditResult('Thua', this)">Thua ❌</div>
+            <div class="result-option draw" onclick="selectEditResult('Hòa', this)">Hòa ➖</div>
+            <div class="result-option draw" onclick="selectEditResult('Nội bộ', this)">Nội bộ 🏃</div>
+          </div>
+          <input type="hidden" id="editMatchResult" value="">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Chi phí (VNĐ)</label>
+          <input type="number" class="form-input" id="editMatchCost">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ghi chú</label>
+          <input type="text" class="form-input" id="editMatchNote">
+        </div>
+        <div style="display:flex;gap:10px;margin-top:20px">
+          <button class="btn btn-secondary" onclick="deleteMatch()" style="flex:1;background:rgba(239,68,68,0.2);color:#ef4444;border-color:transparent">Xóa</button>
+          <button class="btn btn-primary" onclick="updateMatch()" style="flex:2">Lưu thay đổi</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Edit Member Modal -->
     <div class="modal-overlay" id="modalMemberEdit">
       <div class="modal">

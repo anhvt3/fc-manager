@@ -1,57 +1,69 @@
+/**
+ * FC Manager — Apps Script Data Driver
+ *
+ * NOTE: SCRIPT_KEY hardcoded ở đây phải khớp với Vercel env APPS_SCRIPT_KEY.
+ * Nếu rotate key: update cả 2 nơi cùng lúc rồi redeploy.
+ */
+var SCRIPT_KEY = 'fc_manager_secret_2026';
+
 function doGet(e) {
   var key = e.parameter.key;
-  if (key !== 'fc_manager_secret_2026') return ContentService.createTextOutput(JSON.stringify({error: 'Unauthorized'})).setMimeType(ContentService.MimeType.JSON);
-  
+  if (key !== SCRIPT_KEY) return jsonOut({error: 'Unauthorized'});
+
   var action = e.parameter.action;
   if (action === 'getAll') {
-    return ContentService.createTextOutput(JSON.stringify({
+    return jsonOut({
       members: getSheetData('data.new.ThanhVien'),
       matches: getSheetData('data.new.TranDau'),
       fundPayments: getSheetData('data.new.DongQuy'),
       fixtures: getSheetData('data.new.LichThiDau')
-    })).setMimeType(ContentService.MimeType.JSON);
+    });
   }
-  
+
   if (action === 'read') {
     var sheet = e.parameter.sheet;
-    if (!sheet) return ContentService.createTextOutput(JSON.stringify({error: 'Missing sheet'})).setMimeType(ContentService.MimeType.JSON);
-    return ContentService.createTextOutput(JSON.stringify(getSheetData(sheet))).setMimeType(ContentService.MimeType.JSON);
+    if (!sheet) return jsonOut({error: 'Missing sheet'});
+    return jsonOut(getSheetData(sheet));
   }
-  return ContentService.createTextOutput(JSON.stringify({error: 'Invalid action'})).setMimeType(ContentService.MimeType.JSON);
+  return jsonOut({error: 'Invalid action'});
 }
 
 function doPost(e) {
   var body = {};
   try { body = JSON.parse(e.postData.contents); } catch(err) {}
-  
-  if (body.key !== 'fc_manager_secret_2026') return ContentService.createTextOutput(JSON.stringify({error: 'Unauthorized'})).setMimeType(ContentService.MimeType.JSON);
-  
+
+  if (body.key !== SCRIPT_KEY) return jsonOut({error: 'Unauthorized'});
+
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(body.sheet);
-  if (!sheet) return ContentService.createTextOutput(JSON.stringify({error: 'Sheet not found'})).setMimeType(ContentService.MimeType.JSON);
-  
-  var ts = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss');
-  
+  if (!sheet) return jsonOut({error: 'Sheet not found: ' + body.sheet});
+
+  var ts = nowStr();
+
+  // CREATE — append a new row
   if (body.action === 'create') {
-    var row = body.data;
+    var row = body.data || [];
     if (row[0] === 'AUTO_TS') row[0] = ts;
     sheet.appendRow(row);
-    return ContentService.createTextOutput(JSON.stringify({status: 'ok', timestamp: ts})).setMimeType(ContentService.MimeType.JSON);
+    return jsonOut({status: 'ok', timestamp: ts});
   }
-  
+
+  // UPDATE / DELETE — match by single column
   if (body.action === 'update' || body.action === 'delete') {
-    var matchColumn = body.matchColumn || 1; // 1-indexed column to search
-    var matchValue = String(body.matchValue).trim();
+    var matchColumn = body.matchColumn || 1;
+    var matchValue = String(body.matchValue == null ? '' : body.matchValue).trim();
     var data = sheet.getDataRange().getValues();
     var found = false;
+    var renamePayload = null;
+
     for (var i = 1; i < data.length; i++) {
       var cellVal = data[i][matchColumn-1];
       if (cellVal instanceof Date) cellVal = Utilities.formatDate(cellVal, 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss');
       if (String(cellVal).trim() === matchValue) {
         if (body.action === 'delete') {
           sheet.deleteRow(i+1);
-        } else if (body.action === 'update') {
-          var updateData = body.data;
+        } else {
+          var updateData = body.data || [];
           for (var c = 0; c < updateData.length; c++) {
             if (updateData[c] !== undefined && updateData[c] !== null) {
               var val = updateData[c];
@@ -59,15 +71,89 @@ function doPost(e) {
               sheet.getRange(i+1, c+1).setValue(val);
             }
           }
+          // Cascade member rename: nếu update sheet ThanhVien và đổi tên ở cột 2,
+          // cập nhật DongQuy.member theo (cột 3) để fund không mất link.
+          if (body.sheet === 'data.new.ThanhVien' && matchColumn === 2 && updateData[1] && String(updateData[1]).trim() !== matchValue) {
+            renamePayload = { from: matchValue, to: String(updateData[1]).trim() };
+          }
         }
         found = true;
         break;
       }
     }
-    return ContentService.createTextOutput(JSON.stringify({status: found ? 'ok' : 'not_found'})).setMimeType(ContentService.MimeType.JSON);
+
+    if (renamePayload) cascadeMemberRename(renamePayload.from, renamePayload.to);
+    return jsonOut({status: found ? 'ok' : 'not_found'});
   }
-  
-  return ContentService.createTextOutput(JSON.stringify({error: 'Invalid action'})).setMimeType(ContentService.MimeType.JSON);
+
+  // UPSERT — match across multiple columns (AND). Update if found, insert if not.
+  if (body.action === 'upsert') {
+    var cols = body.matchColumns || [];
+    var vals = (body.matchValues || []).map(function(v){ return String(v == null ? '' : v).trim(); });
+    if (cols.length !== vals.length || cols.length === 0) return jsonOut({error: 'matchColumns/matchValues mismatch'});
+    var data = sheet.getDataRange().getValues();
+    var rowIdx = -1;
+    for (var i = 1; i < data.length; i++) {
+      var allMatch = true;
+      for (var k = 0; k < cols.length; k++) {
+        var v = data[i][cols[k]-1];
+        if (v instanceof Date) v = Utilities.formatDate(v, 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss');
+        if (String(v).trim() !== vals[k]) { allMatch = false; break; }
+      }
+      if (allMatch) { rowIdx = i+1; break; }
+    }
+    var rowData = (body.data || []).map(function(v){ return v === 'AUTO_TS' ? ts : v; });
+    if (rowIdx > 0) {
+      for (var c = 0; c < rowData.length; c++) {
+        if (rowData[c] !== undefined && rowData[c] !== null) sheet.getRange(rowIdx, c+1).setValue(rowData[c]);
+      }
+      return jsonOut({status: 'ok', mode: 'updated'});
+    } else {
+      sheet.appendRow(rowData);
+      return jsonOut({status: 'ok', mode: 'inserted', timestamp: ts});
+    }
+  }
+
+  // DELETE COMPOSITE — match across multiple columns
+  if (body.action === 'deleteComposite') {
+    var cols = body.matchColumns || [];
+    var vals = (body.matchValues || []).map(function(v){ return String(v == null ? '' : v).trim(); });
+    if (cols.length !== vals.length || cols.length === 0) return jsonOut({error: 'matchColumns/matchValues mismatch'});
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      var allMatch = true;
+      for (var k = 0; k < cols.length; k++) {
+        var v = data[i][cols[k]-1];
+        if (v instanceof Date) v = Utilities.formatDate(v, 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss');
+        if (String(v).trim() !== vals[k]) { allMatch = false; break; }
+      }
+      if (allMatch) { sheet.deleteRow(i+1); return jsonOut({status: 'ok'}); }
+    }
+    return jsonOut({status: 'not_found'});
+  }
+
+  return jsonOut({error: 'Invalid action'});
+}
+
+function cascadeMemberRename(fromName, toName) {
+  if (!fromName || !toName || fromName === toName) return;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var dq = ss.getSheetByName('data.new.DongQuy');
+  if (!dq) return;
+  var data = dq.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][2]).trim() === fromName) {
+      dq.getRange(i+1, 3).setValue(toName);
+    }
+  }
+}
+
+function jsonOut(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function nowStr() {
+  return Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss');
 }
 
 function getSheetData(name) {
@@ -100,7 +186,15 @@ function getOrCreate(name, headers) {
   return sheet;
 }
 
+/**
+ * DESTRUCTIVE: drops 4 sheets and rebuilds from old structure.
+ * Có guard tránh chạy nhầm — phải xác nhận qua dialog.
+ */
 function migrateData() {
+  var ui = SpreadsheetApp.getUi();
+  var resp = ui.alert('⚠️ Migrate sẽ XÓA 4 sheet data.new.* hiện tại và build lại từ sheet đầu tiên. Tiếp tục?', ui.ButtonSet.YES_NO);
+  if (resp !== ui.Button.YES) { ui.alert('Đã hủy.'); return; }
+
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   ['data.new.ThanhVien','data.new.TranDau','data.new.DongQuy','data.new.LichThiDau'].forEach(function(n) {
     var s = ss.getSheetByName(n);
@@ -108,8 +202,8 @@ function migrateData() {
   });
   var old = ss.getSheets()[0];
   var data = old.getDataRange().getValues();
-  var ts = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss');
-  
+  var ts = nowStr();
+
   var sheetTV = getOrCreate('data.new.ThanhVien', ['timestamp','name','role','number','size','status']);
   var sheetTD = getOrCreate('data.new.TranDau', ['timestamp','date','opponent','venue','result','cost','note']);
   var sheetDQ = getOrCreate('data.new.DongQuy', ['timestamp','period','member','amount','note']);
@@ -122,14 +216,14 @@ function migrateData() {
     if (typeof g !== 'number' || !h) continue;
     var rawName = String(h).trim();
     if (!rawName || rawName.length < 2) continue;
-    
+
     var role = 'Đi làm';
     var name = rawName;
     if (rawName.toLowerCase().indexOf('s.viên') >= 0 || rawName.toLowerCase().indexOf('sinh viên') >= 0) {
       role = 'Sinh viên';
       name = rawName.replace(/\(s\.viên\)/i, '').replace(/s\.viên/i, '').replace(/sinh viên/i, '').trim();
     }
-    
+
     var num = data[r][8] || 0;
     var sz = String(data[r][9] || 'M');
     if (['S','M','L','XL'].indexOf(sz) < 0) sz = 'M';
@@ -163,7 +257,7 @@ function migrateData() {
     else if (data[r][4]) cost = parseFloat(String(data[r][4]).replace(/[^\d]/g, '')) || 0;
     var resultClean = resultRaw;
     var rl = resultRaw.toLowerCase();
-    
+
     if (rl.indexOf('đối thắng') >= 0 || rl.indexOf('doi thang') >= 0) resultClean = 'Thua';
     else if (rl.indexOf('đối thua') >= 0 || rl.indexOf('doi thua') >= 0) resultClean = 'Thắng';
     else if (rl.indexOf('thắng') >= 0 || rl.indexOf('thang') >= 0) resultClean = 'Thắng';
@@ -174,7 +268,7 @@ function migrateData() {
     sheetTD.appendRow([ts, dateStr, resultRaw, '', resultClean, cost, String(note)]);
     tc++;
   }
-  
+
   var fc = 0;
   for (var r = 40; r < data.length; r++) {
     var stt = data[r][9];
@@ -185,7 +279,7 @@ function migrateData() {
       var color = String(data[r][13]||'').trim();
       var res = String(data[r][14]||'').trim();
       var nte = String(data[r][15]||'').trim();
-      
+
       if (opp && opp.length > 1) {
         var fixTs = Utilities.formatDate(new Date(new Date().getTime() - fc*1000), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss');
         var dStr = d;
@@ -199,7 +293,7 @@ function migrateData() {
       }
     }
   }
-  
+
   for (var i = 1; i <= 7; i++) { sheetTV.autoResizeColumn(i); sheetTD.autoResizeColumn(i); sheetDQ.autoResizeColumn(i); sheetFX.autoResizeColumn(i); }
   ss.toast('Members: ' + mc + ', Matches: ' + tc + ', Fixtures: ' + fc, 'Migration Done', 10);
 }

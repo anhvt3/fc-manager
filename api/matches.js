@@ -20,7 +20,8 @@ export default async function handler(req, res) {
     // but we stub them for API completeness
     else if (method === 'PUT') {
       const { id, date, opponent, venue, result, cost, note } = req.body;
-      const data = ['AUTO_TS', date, opponent, venue, result, cost, note];
+      // Giữ nguyên timestamp gốc — null ở col 1 sẽ skip update timestamp trong Code.gs
+      const data = [null, date, opponent, venue, result, cost, note];
       const resp = await gsPost({ action: 'update', sheet, matchColumn: 1, matchValue: id, data });
       return res.status(200).json(resp);
     }

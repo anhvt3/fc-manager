@@ -18,7 +18,8 @@ export default async function handler(req, res) {
     }
     else if (method === 'PUT') {
       const { id, date, opponent, venue, kitColor, status, note } = req.body;
-      const data = ['AUTO_TS', date, opponent, venue, kitColor, status, note];
+      // Giữ nguyên timestamp gốc làm ID
+      const data = [null, date, opponent, venue, kitColor, status, note];
       const resp = await gsPost({ action: 'update', sheet, matchColumn: 1, matchValue: id, data });
       return res.status(200).json(resp);
     }

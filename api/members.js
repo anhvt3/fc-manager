@@ -17,10 +17,10 @@ export default async function handler(req, res) {
       return res.status(200).json(result);
     }
     else if (method === 'PUT') {
-      // Update member
-      // Identify by original name in column 2
+      // Update member — identify by original name in column 2.
+      // Giữ nguyên timestamp gốc (col 1 = null) tránh thay đổi mỗi lần edit.
       const { origName, name, role, number, size, status } = req.body;
-      const data = ['AUTO_TS', name, role, number, size, status];
+      const data = [null, name, role, number, size, status];
       const result = await gsPost({ action: 'update', sheet, matchColumn: 2, matchValue: origName, data });
       return res.status(200).json(result);
     }
