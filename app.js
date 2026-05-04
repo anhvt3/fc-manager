@@ -122,7 +122,7 @@ function renderDashboard() {
   const draws = matches.filter(m => classifyResult(m.result)==='draw').length;
 
   const balEl = document.getElementById('statBalance');
-  balEl.textContent = (balance >= 0 ? '+' : '') + fmt(balance) + 'đ';
+  balEl.textContent = (balance < 0 ? '-' : '') + fmt(Math.abs(balance)) + 'đ';
   balEl.className = 'stat-value ' + (balance >= 0 ? 'positive' : 'negative');
   document.getElementById('statMatches').textContent = matches.length;
   document.getElementById('statMatches').className = 'stat-value';
