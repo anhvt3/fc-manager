@@ -323,7 +323,7 @@ function renderFixtures() {
           <span>📌 ${f.status==='upcoming'?'Sắp tới':f.status==='completed'?'Đã đá':'Hủy'}</span>
         </div>
       </div>
-      ${f.status==='upcoming'?`<button class="btn btn-primary" style="padding:4px 8px;font-size:0.7rem;margin-left:auto" onclick="event.stopPropagation();completeFixture('${f.timestamp}')">Hoàn thành</button>`:''}
+      ${f.status==='upcoming'?`<button class="btn btn-primary" style="width:auto;padding:6px 10px;font-size:0.7rem;margin-left:auto;flex-shrink:0" onclick="event.stopPropagation();completeFixture('${f.timestamp}')">✅ Xong</button>`:''}
     </div>`;
   }).join('') || '<div class="empty-state"><p>Chưa có lịch thi đấu</p></div>';
 }
