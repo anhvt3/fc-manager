@@ -4,7 +4,9 @@
 **FC Manager** là một Progressive Web App (PWA) được thiết kế đặc biệt cho đội trưởng đội bóng (Low-tech friendly). Ứng dụng giúp số hóa toàn bộ quy trình quản lý đội bóng từ file Excel thủ công sang một hệ thống Web App hiện đại, kết nối trực tiếp với Google Sheets làm Database.
 
 - **Frontend:** Vanilla HTML, CSS, JavaScript (Không Framework, siêu nhẹ).
-- **Backend/Database:** Google Apps Script (REST API) + Google Sheets.
+- **Backend (BFF):** Vercel Serverless Functions (`/api/*`) chạy Node.js.
+- **Data Layer:** Google Apps Script (`Code.gs`) đóng vai trò như một CRUD Driver siêu nhẹ.
+- **Database:** Google Sheets.
 - **Hosting:** Vercel (`fcfriend.vercel.app`).
 - **Design System:** Mobile-first, Dark Theme, Glassmorphism, Custom UI.
 
@@ -12,58 +14,53 @@
 
 ## 2. Completed Features (Đã hoàn thiện)
 
-### A. Database Architecture & Migration
-- Đã thiết lập script tự động chuyển đổi dữ liệu phi cấu trúc từ file Excel cũ sang 3 bảng chuẩn hóa:
+### A. Kiến trúc Vercel Serverless BFF (Nâng cấp lớn nhất)
+- Đã loại bỏ hoàn toàn việc gọi trực tiếp script.google.com từ trình duyệt của người dùng (tăng cường bảo mật và tốc độ).
+- Xây dựng hệ thống API nội bộ trên Vercel:
+  - `GET /api/init`: Kéo toàn bộ dữ liệu ban đầu.
+  - `POST, PUT, DELETE /api/members`: Quản lý thành viên.
+  - `POST, PUT, DELETE /api/matches`: Quản lý kết quả trận đấu.
+  - `POST, PUT, DELETE /api/fixtures`: Quản lý lịch thi đấu.
+  - `POST /api/funds`: Quản lý nộp quỹ.
+- **Security:** Thêm `SCRIPT_KEY` xác thực 2 chiều giữa Vercel backend và Google Apps Script.
+
+### B. Database Architecture (Google Sheets)
+- Đã migrate dữ liệu sang 4 bảng chuẩn hóa:
   - `data.new.ThanhVien`: Quản lý danh sách thành viên.
   - `data.new.TranDau`: Quản lý lịch sử các trận đã đấu và kết quả.
   - `data.new.DongQuy`: Quản lý lịch sử nộp quỹ.
-- **Fix Logic Thể thao:** Cập nhật logic nhận diện kết quả tự động (Ví dụ: "Đối thắng" = Đội nhà Thua, "Đối thua" = Đội nhà Thắng).
+  - `data.new.LichThiDau`: Quản lý lịch thi đấu sắp tới.
 
-### B. REST API Backend (`Code.gs`)
-- Xây dựng file `Code.gs` đóng vai trò làm API nhận request từ Frontend.
-- Triển khai phương thức `doGet` để kéo toàn bộ dữ liệu (Read).
-- Triển khai phương thức `doPost` để xử lý các tác vụ thêm, sửa, xóa (Create, Update, Delete) cho Thành viên, Trận đấu, Nộp Quỹ.
-- Tự động gán `timestamp` chuẩn cho mọi thao tác.
+### C. Backend Data Layer (`Code.gs`)
+- Refactor toàn bộ `Code.gs` thành một Data Driver thuần túy. Code này KHÔNG chứa bất kỳ business logic nào nữa.
+- Chỉ nhận payload chuẩn `{ action: "update", sheet: "...", matchColumn: 2, matchValue: "...", data: [...] }`.
+- Tự động handle trailing spaces (`.trim()`) để fix triệt để lỗi không update được Google Sheets khi tên thành viên bị dư khoảng trắng.
 
-### C. Frontend Modules (`app.js`, `index.html`)
-- **Dashboard:** Thống kê tổng dư quỹ, số trận, số thành viên. Tích hợp Chart.js vẽ biểu đồ tỷ lệ Thắng/Thua/Hòa và biểu đồ chi phí theo tháng.
-- **Quản lý Trận đấu:** 
-  - Xem danh sách trận đấu theo từng tháng.
-  - Sắp xếp thông minh: Trận mới thêm hiển thị ở trên cùng.
-  - Form thêm trận đấu với UI Result Selector (Pill buttons: Thắng/Thua/Hòa/Nội bộ).
-- **Quản lý Nộp Quỹ:**
-  - Logic tạo chu kỳ quỹ động: Tự động render danh sách các tháng thu quỹ từ T5/2026 đến T12/2027.
-  - Theo dõi trạng thái Đã nộp / Chưa nộp của từng cá nhân theo từng tháng.
-- **Quản lý Thành viên (CRUD đầy đủ):**
-  - Thêm thành viên mới (Tên, Số áo, Size, Đối tượng Đi làm/Sinh viên).
-  - Cập nhật thông tin và Trạng thái (Hoạt động / Tạm nghỉ).
-  - Xóa thành viên.
+### D. Frontend Modules (`app.js`, `index.html`)
+- **UI Lịch thi đấu (Fixtures):** 
+  - Đã thêm Tab "Lên kèo" với Bottom Navigation chuẩn layout 5 Tabs.
+  - Có nút để tạo lịch mới, hiển thị Màu áo, Sân bóng đầy đủ.
+  - Nút "Hoàn thành" giúp chuyển nhanh 1 Lịch thi đấu thành 1 Trận đấu (chỉ cần nhập kết quả Thắng/Thua).
+- **Format Tiền tệ (Update mới nhất):** 
+  - Fix logic hiển thị số dư quỹ: Quỹ dương hiển thị số bình thường và text màu xanh (VD: 1.5Mđ). Quỹ âm có thêm dấu `-` và text màu đỏ (VD: -500Kđ).
+- **Dashboard:** Thống kê tổng dư quỹ, số trận, số thành viên. Biểu đồ Chart.js tự động cập nhật.
 
 ---
 
-## 3. Next Task: "Lịch thi đấu" (Upcoming Fixtures) Tab
-**Ngữ cảnh:** Đội trưởng đang quản lý lịch các trận *sắp tới* ở một bảng riêng (Cột J -> P trong file Excel gốc).
-
-**Requirement cho Claude Code:**
-Cần xây dựng thêm một Tab **Lịch thi đấu** trên PWA với các yêu cầu sau:
-
-1. **Database Update:** 
-   - Tạo thêm sheet `data.new.LichThiDau` với các cột: `timestamp, date, opponent, venue, kitColor, status, note`.
-   - Update `Code.gs` để hỗ trợ thêm/sửa/xóa bảng này.
-2. **Frontend UI:**
-   - Thêm một Tab mới dưới Bottom Navigation (ví dụ icon Calendar).
-   - Liệt kê các trận đấu sắp diễn ra (Gồm: Ngày, Đối tác, Sân bóng, Màu áo).
-   - Thêm nút FAB để "Tạo lịch thi đấu mới".
-   - (Tùy chọn) Nút "Chuyển thành Trận đã đấu" để tự động đưa dữ liệu từ Lịch thi đấu sang Tab Trận đấu (kèm cập nhật kết quả Thắng/Thua và Chi phí).
+## 3. Deployment & Sync Instructions cho Đội Trưởng
+*Lưu ý quan trọng:* Cập nhật cấu hình URL.
+- **Vercel:** Hệ thống đã được đẩy lên Repo Github `fc-manager` và tự động deploy qua Vercel. Frontend và Vercel API đang chạy version mới nhất.
+- **Google Apps Script:** Do `clasp` trên máy bị lỗi Auth (`Invalid script key`), anh cần Copy toàn bộ nội dung file `Code.gs` ở máy tính (đã được Antigravity fix lỗi `.trim()`), dán đè vào trình duyệt Google Apps Script Editor -> Bấm Save -> Bấm Deploy (Manage Deployments -> New Version).
+- **Environment Variables:** Nếu Deploy ra URL Web App mới, cần sửa biến `SCRIPT_URL` trong file `api/_lib/googleClient.js` và Deploy lại Vercel bằng lệnh `vercel --prod` trên Terminal.
 
 ---
 
 ## 4. Code Structure
-- `index.html`: Chứa toàn bộ giao diện, modal, bottom nav.
-- `style.css`: Hệ thống CSS Variables, Mobile-first responsive, Component styles.
-- `app.js`: Logic App, State Management (`state` object), API fetch/push, DOM render functions.
-- `data.js`: Cấu hình danh sách tháng nộp quỹ (`FUND_PERIODS`) và mock data (fallback khi offline).
-- `Code.gs`: Mã nguồn Google Apps Script (cần dán vào project Apps Script tương ứng trên Google Sheets).
-- `vercel.json`: Cấu hình routing cho Vercel.
+- `index.html`: Chứa toàn bộ giao diện, modal, bottom nav (đã fix lỗi hiển thị FAB).
+- `style.css`: Hệ thống CSS Variables, Mobile-first responsive (đã fix vị trí nút tạo mới FAB cho Mobile).
+- `app.js`: Logic App, State Management, thay thế 100% lệnh `fetch` cũ bằng `apiCall('/api/...')`.
+- `data.js`: Cấu hình danh sách tháng nộp quỹ (`FUND_PERIODS`).
+- `Code.gs`: Mã nguồn Google Apps Script (CRUD Data Layer).
+- `api/`: Thư mục chứa các route Serverless API của Vercel (BFF).
 
 *End of Handoff.*

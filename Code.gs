@@ -41,13 +41,13 @@ function doPost(e) {
   
   if (body.action === 'update' || body.action === 'delete') {
     var matchColumn = body.matchColumn || 1; // 1-indexed column to search
-    var matchValue = String(body.matchValue);
+    var matchValue = String(body.matchValue).trim();
     var data = sheet.getDataRange().getValues();
     var found = false;
     for (var i = 1; i < data.length; i++) {
       var cellVal = data[i][matchColumn-1];
       if (cellVal instanceof Date) cellVal = Utilities.formatDate(cellVal, 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss');
-      if (String(cellVal) === matchValue) {
+      if (String(cellVal).trim() === matchValue) {
         if (body.action === 'delete') {
           sheet.deleteRow(i+1);
         } else if (body.action === 'update') {
