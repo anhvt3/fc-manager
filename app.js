@@ -170,6 +170,8 @@ function renderDashboard() {
   const balEl = document.getElementById('statBalance');
   balEl.textContent = (balance < 0 ? '-' : '') + fmt(Math.abs(balance)) + 'đ';
   balEl.className = 'stat-value ' + (balance >= 0 ? 'positive' : 'negative');
+  const balLabel = document.getElementById('statBalanceLabel');
+  if (balLabel) balLabel.textContent = balance < 0 ? 'ÂM QUỸ' : 'DƯ QUỸ';
   document.getElementById('statMatches').textContent = matches.length;
   document.getElementById('statMatches').className = 'stat-value';
   document.getElementById('statMembers').textContent = state.members.filter(m=>m.status==='active').length;
