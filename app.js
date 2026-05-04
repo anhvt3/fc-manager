@@ -27,7 +27,7 @@ function init() {
   state.matches = safeParse('fc_matches', null) || [...INITIAL_MATCHES];
   state.fundPayments = safeParse('fc_fund', null) || [...INITIAL_FUND_PAYMENTS];
   state.fixtures = safeParse('fc_fixtures', null) || [];
-  const currentMonthName = `Quỹ T${new Date().getMonth()+1}/${new Date().getFullYear()}`;
+  const currentMonthName = `Quỹ T${new Date().getMonth() + 1}/${new Date().getFullYear()}`;
   const currentPeriod = FUND_PERIODS.find(p => p.name === currentMonthName);
   state.currentFundPeriod = currentPeriod ? currentPeriod.id : FUND_PERIODS.length;
   updateSyncStatus();
@@ -44,8 +44,8 @@ function save() {
 
 function fmt(n) {
   const v = Number(n) || 0;
-  if (Math.abs(v) >= 1e6) return (v/1e6).toFixed(1).replace('.0','') + 'M';
-  if (Math.abs(v) >= 1e3) return (v/1e3).toFixed(0) + 'K';
+  if (Math.abs(v) >= 1e6) return (v / 1e6).toFixed(1).replace('.0', '') + 'M';
+  if (Math.abs(v) >= 1e3) return (v / 1e3).toFixed(0) + 'K';
   return v.toString();
 }
 
@@ -61,10 +61,10 @@ function parseDateSafe(d) {
 function fmtDate(d) {
   const dt = parseDateSafe(d);
   if (!dt) return String(d || '—');
-  return dt.toLocaleDateString('vi-VN', {day:'2-digit',month:'2-digit',year:'numeric'});
+  return dt.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-function getMonthKey(d) { return (d || '').toString().substring(0,7); }
+function getMonthKey(d) { return (d || '').toString().substring(0, 7); }
 
 function safeInitial(name) {
   const s = String(name || '').trim();
@@ -114,7 +114,7 @@ function switchTab(el) {
   state.currentTab = tabId;
 }
 
-function showToast(msg, type='success') {
+function showToast(msg, type = 'success') {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.className = 'toast ' + type + ' show';
@@ -160,21 +160,19 @@ function renderAll() {
 
 function renderDashboard() {
   const matches = state.matches;
-  const totalCost = matches.reduce((s,m) => s + (Number(m.cost) || 0), 0);
-  const totalFund = state.fundPayments.reduce((s,p) => s + (Number(p.amount) || 0), 0);
+  const totalCost = matches.reduce((s, m) => s + (Number(m.cost) || 0), 0);
+  const totalFund = state.fundPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
   const balance = totalFund - totalCost;
-  const wins = matches.filter(m => classifyResult(m.result)==='win').length;
-  const losses = matches.filter(m => classifyResult(m.result)==='lose').length;
-  const draws = matches.filter(m => classifyResult(m.result)==='draw').length;
+  const wins = matches.filter(m => classifyResult(m.result) === 'win').length;
+  const losses = matches.filter(m => classifyResult(m.result) === 'lose').length;
+  const draws = matches.filter(m => classifyResult(m.result) === 'draw').length;
 
   const balEl = document.getElementById('statBalance');
   balEl.textContent = (balance < 0 ? '-' : '') + fmt(Math.abs(balance)) + 'đ';
   balEl.className = 'stat-value ' + (balance >= 0 ? 'positive' : 'negative');
-  const balLabel = document.getElementById('statBalanceLabel');
-  if (balLabel) balLabel.textContent = balance < 0 ? 'ÂM QUỸ' : 'DƯ QUỸ';
   document.getElementById('statMatches').textContent = matches.length;
   document.getElementById('statMatches').className = 'stat-value';
-  document.getElementById('statMembers').textContent = state.members.filter(m=>m.status==='active').length;
+  document.getElementById('statMembers').textContent = state.members.filter(m => m.status === 'active').length;
   document.getElementById('statMembers').className = 'stat-value';
   const tfEl = document.getElementById('statTotalFund');
   tfEl.textContent = fmt(totalFund) + 'đ';
@@ -192,10 +190,10 @@ function renderWinRateChart(w, l, d) {
   winChart = new Chart(canvas, {
     type: 'doughnut',
     data: {
-      labels: ['Thắng','Thua','Hòa/Khác'],
+      labels: ['Thắng', 'Thua', 'Hòa/Khác'],
       datasets: [{
         data: [w, l, d],
-        backgroundColor: ['#10b981','#ef4444','#f59e0b'],
+        backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
         borderWidth: 0, borderRadius: 4
       }]
     },
@@ -205,8 +203,8 @@ function renderWinRateChart(w, l, d) {
     }
   });
   const total = w + l + d;
-  const pctW = total ? Math.round(w/total*100) : 0;
-  const pctL = total ? Math.round(l/total*100) : 0;
+  const pctW = total ? Math.round(w / total * 100) : 0;
+  const pctL = total ? Math.round(l / total * 100) : 0;
   document.getElementById('winRateLegend').innerHTML =
     `<div class="legend-item"><span class="legend-dot" style="background:#10b981"></span>Thắng: ${w} (${pctW}%)</div>` +
     `<div class="legend-item"><span class="legend-dot" style="background:#ef4444"></span>Thua: ${l} (${pctL}%)</div>` +
@@ -219,10 +217,10 @@ function renderMonthlyChart() {
   state.matches.forEach(m => {
     const k = getMonthKey(m.date);
     if (!k) return;
-    months[k] = (months[k]||0) + (Number(m.cost) || 0);
+    months[k] = (months[k] || 0) + (Number(m.cost) || 0);
   });
   const keys = Object.keys(months).sort();
-  const labels = keys.map(k => { const [y,m]=k.split('-'); return `T${+m}/${y.slice(2)}`; });
+  const labels = keys.map(k => { const [y, m] = k.split('-'); return `T${+m}/${y.slice(2)}`; });
   const canvas = document.getElementById('monthlyChart');
   if (monthChart) monthChart.destroy();
   monthChart = new Chart(canvas, {
@@ -248,7 +246,7 @@ function renderMonthlyChart() {
 }
 
 function renderRecentMatches() {
-  const recent = [...state.matches].sort((a,b) => {
+  const recent = [...state.matches].sort((a, b) => {
     const tA = a.timestamp || '';
     const tB = b.timestamp || '';
     if (tA && tB && tA !== tB) return tB.localeCompare(tA);
@@ -265,7 +263,7 @@ function matchItemHTML(m) {
     <div class="match-result-badge ${cls}">${resultLabel(m.result)}</div>
     <div class="match-info">
       <div class="match-opponent">${m.opponent || m.result}</div>
-      <div class="match-date">${fmtDate(m.date)}${m.note ? ' · '+m.note : ''}</div>
+      <div class="match-date">${fmtDate(m.date)}${m.note ? ' · ' + m.note : ''}</div>
     </div>
     <div class="match-cost">${fmt(m.cost)}đ</div>
   </div>`;
@@ -274,24 +272,24 @@ function matchItemHTML(m) {
 function renderMatches() {
   const months = [...new Set(state.matches.map(m => getMonthKey(m.date)))].sort().reverse();
   const sel = document.getElementById('matchMonthSelector');
-  sel.innerHTML = `<div class="month-chip ${state.selectedMonth==='all'?'active':''}" onclick="filterMonth('all')">Tất cả</div>` +
+  sel.innerHTML = `<div class="month-chip ${state.selectedMonth === 'all' ? 'active' : ''}" onclick="filterMonth('all')">Tất cả</div>` +
     months.map(k => {
-      const [y,m] = k.split('-');
-      return `<div class="month-chip ${state.selectedMonth===k?'active':''}" onclick="filterMonth('${k}')">T${+m}/${y.slice(2)}</div>`;
+      const [y, m] = k.split('-');
+      return `<div class="month-chip ${state.selectedMonth === k ? 'active' : ''}" onclick="filterMonth('${k}')">T${+m}/${y.slice(2)}</div>`;
     }).join('');
 
   let filtered = state.selectedMonth === 'all' ? state.matches : state.matches.filter(m => getMonthKey(m.date) === state.selectedMonth);
-  filtered = [...filtered].sort((a,b) => {
+  filtered = [...filtered].sort((a, b) => {
     const tA = a.timestamp || '';
     const tB = b.timestamp || '';
     if (tA && tB && tA !== tB) return tB.localeCompare(tA);
-    return String(b.date||'').localeCompare(String(a.date||''));
+    return String(b.date || '').localeCompare(String(a.date || ''));
   });
 
-  const w = filtered.filter(m=>classifyResult(m.result)==='win').length;
-  const l = filtered.filter(m=>classifyResult(m.result)==='lose').length;
-  const d = filtered.filter(m=>classifyResult(m.result)==='draw').length;
-  const cost = filtered.reduce((s,m)=>s+(Number(m.cost)||0),0);
+  const w = filtered.filter(m => classifyResult(m.result) === 'win').length;
+  const l = filtered.filter(m => classifyResult(m.result) === 'lose').length;
+  const d = filtered.filter(m => classifyResult(m.result) === 'draw').length;
+  const cost = filtered.reduce((s, m) => s + (Number(m.cost) || 0), 0);
   document.getElementById('sumWins').textContent = w;
   document.getElementById('sumLosses').textContent = l;
   document.getElementById('sumDraws').textContent = d;
@@ -308,7 +306,7 @@ function renderFund() {
   document.getElementById('fundPeriodLabel').textContent = period.name;
 
   const payments = state.fundPayments.filter(p => p.period === period.id);
-  const total = payments.reduce((s,p) => s + (Number(p.amount) || 0), 0);
+  const total = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
   document.getElementById('fundPeriodTotal').textContent = fmt(total) + 'đ';
 
   const activeMembers = state.members.filter(m => m.status === 'active');
@@ -319,7 +317,7 @@ function renderFund() {
       <div class="fund-avatar">${initials}</div>
       <div class="fund-info">
         <div class="fund-name">${member.name}</div>
-        <div class="fund-detail">${payment ? fmt(payment.amount)+'đ' : 'Chưa nộp'}</div>
+        <div class="fund-detail">${payment ? fmt(payment.amount) + 'đ' : 'Chưa nộp'}</div>
       </div>
       <div class="fund-status ${payment ? 'paid' : 'unpaid'}">${payment ? '✓ Đã nộp' : '✗ Chưa'}</div>
     </div>`;
@@ -336,12 +334,12 @@ function changeFundPeriod(dir) {
 }
 
 function renderMembers() {
-  const colors = ['#1e3a5f','#3b1f5f','#5f1e3a','#1e5f3a','#5f3a1e','#3a1e5f'];
+  const colors = ['#1e3a5f', '#3b1f5f', '#5f1e3a', '#1e5f3a', '#5f3a1e', '#3a1e5f'];
   document.getElementById('memberCount').textContent = `${state.members.length} thành viên`;
   document.getElementById('memberList').innerHTML = state.members.map((m, i) => {
     const initials = safeInitial(m.name);
     const bg = colors[i % colors.length];
-    const totalPaid = state.fundPayments.filter(p => p.member === m.name).reduce((s,p) => s + (Number(p.amount) || 0), 0);
+    const totalPaid = state.fundPayments.filter(p => p.member === m.name).reduce((s, p) => s + (Number(p.amount) || 0), 0);
     const safeName = String(m.name || '').replace(/'/g, "\\'");
     return `<div class="member-card" onclick="openEditMember('${safeName}')">
       <div class="member-avatar" style="background:linear-gradient(135deg,${bg},${bg}cc)">${initials}</div>
@@ -354,7 +352,7 @@ function renderMembers() {
           <span>💰 ${fmt(totalPaid)}đ</span>
         </div>
       </div>
-      <div class="member-status ${m.status||'active'}">${m.status === 'paused' ? 'Tạm nghỉ' : 'Hoạt động'}</div>
+      <div class="member-status ${m.status || 'active'}">${m.status === 'paused' ? 'Tạm nghỉ' : 'Hoạt động'}</div>
     </div>`;
   }).join('') || '<div class="empty-state"><p>Chưa có thành viên</p></div>';
 }
@@ -362,20 +360,20 @@ function renderMembers() {
 function renderFixtures() {
   document.getElementById('fixtureCount').textContent = `${state.fixtures.length} trận`;
 
-  const sorted = [...state.fixtures].sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')));
-  
+  const sorted = [...state.fixtures].sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+
   document.getElementById('fixtureList').innerHTML = sorted.map(f => {
     return `<div class="member-card" onclick="openEditFixture('${f.timestamp}')">
-      <div class="member-avatar" style="background:#3b1f5f;border-radius:8px;font-size:1rem;padding:0 5px">${fmtDate(f.date).substring(0,5)}</div>
+      <div class="member-avatar" style="background:#3b1f5f;border-radius:8px;font-size:1rem;padding:0 5px">${fmtDate(f.date).substring(0, 5)}</div>
       <div class="member-info">
         <div class="member-name">${f.opponent}</div>
         <div class="member-meta">
-          <span>📍 ${f.venue||'Chưa rõ'}</span>
-          <span>👕 ${f.kitColor||'Chưa chốt'}</span>
-          <span>📌 ${f.status==='upcoming'?'Sắp tới':f.status==='completed'?'Đã đá':'Hủy'}</span>
+          <span>📍 ${f.venue || 'Chưa rõ'}</span>
+          <span>👕 ${f.kitColor || 'Chưa chốt'}</span>
+          <span>📌 ${f.status === 'upcoming' ? 'Sắp tới' : f.status === 'completed' ? 'Đã đá' : 'Hủy'}</span>
         </div>
       </div>
-      ${f.status==='upcoming'?`<button class="btn btn-primary" style="width:auto;padding:6px 10px;font-size:0.7rem;margin-left:auto;flex-shrink:0" onclick="event.stopPropagation();completeFixture('${f.timestamp}')">✅ Xong</button>`:''}
+      ${f.status === 'upcoming' ? `<button class="btn btn-primary" style="width:auto;padding:6px 10px;font-size:0.7rem;margin-left:auto;flex-shrink:0" onclick="event.stopPropagation();completeFixture('${f.timestamp}')">✅ Xong</button>` : ''}
     </div>`;
   }).join('') || '<div class="empty-state"><p>Chưa có lịch thi đấu</p></div>';
 }
@@ -420,9 +418,9 @@ async function saveMatch(btn) {
 
 function populateFundModal() {
   const selP = document.getElementById('fundPeriod');
-  selP.innerHTML = FUND_PERIODS.map(p => `<option value="${p.id}" ${p.id===state.currentFundPeriod?'selected':''}>${p.name}</option>`).join('');
+  selP.innerHTML = FUND_PERIODS.map(p => `<option value="${p.id}" ${p.id === state.currentFundPeriod ? 'selected' : ''}>${p.name}</option>`).join('');
   const selM = document.getElementById('fundMember');
-  selM.innerHTML = state.members.filter(m=>m.status==='active').map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+  selM.innerHTML = state.members.filter(m => m.status === 'active').map(m => `<option value="${m.name}">${m.name}</option>`).join('');
   const period = FUND_PERIODS[state.currentFundPeriod - 1];
   document.getElementById('fundAmount').value = period ? period.amount : 500000;
 }
@@ -565,7 +563,7 @@ function openEditFixture(ts) {
   document.getElementById('fixtureKitColor').value = f.kitColor;
   document.getElementById('fixtureStatus').value = f.status;
   document.getElementById('fixtureNote').value = f.note;
-  
+
   document.getElementById('modalFixtureTitle').textContent = '✏️ Sửa lịch đấu';
   document.getElementById('btnDeleteFixture').style.display = 'block';
   openModal('modalFixture');
@@ -754,7 +752,7 @@ async function apiCall(endpoint, method, body) {
 
 // Disable button và hiện loading nhẹ trong khi chờ network. Tránh double-submit.
 function lockButton(btn) {
-  if (!btn || !btn.tagName) return { release: () => {} };
+  if (!btn || !btn.tagName) return { release: () => { } };
   const prevDisabled = btn.disabled;
   const prevText = btn.textContent;
   btn.disabled = true;
@@ -807,7 +805,7 @@ async function syncFromSheet(force = false) {
     state.initialSynced = true;
     save(); renderAll();
     showToast('Đồng bộ thành công ✅');
-  } catch(e) {
+  } catch (e) {
     console.error('Sync error:', e);
     showToast('Lỗi đồng bộ dữ liệu', 'error');
   }
