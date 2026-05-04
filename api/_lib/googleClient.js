@@ -5,7 +5,7 @@
 //      → URL mới → cập nhật APPS_SCRIPT_URL trên Vercel
 //   3) Sau khi xác nhận env hoạt động, xóa fallback bên dưới
 //   4) (Lý tưởng) Dùng `git filter-repo` xoá secret cũ khỏi git history rồi force-push.
-const SCRIPT_URL = process.env.APPS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbxvJNf_P7JCtQ1eAdK1fswkpkZaNB-q69TiBl13XxbZnLJB3teSLzOvWghAD7tZXoejcw/exec';
+const SCRIPT_URL = process.env.APPS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbzgBkTfgT1OGV8rd25cBy4nT8WdGkQy0iyVdlzmxoiqoVO_xfIItqZMW2ytWyRrPKtdSA/exec';
 const SCRIPT_KEY = process.env.APPS_SCRIPT_KEY || 'fc_manager_secret_2026';
 
 export async function gsGet(action) {
