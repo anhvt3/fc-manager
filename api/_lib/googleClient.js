@@ -1,4 +1,4 @@
-const SCRIPT_URL = process.env.APPS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbwTwIM-vhQir-WTdCksw6sstVUGl7lomLUxR_OQnpKvMQNgVOdF93S5xIqGJMJTgLFAqg/exec';
+const SCRIPT_URL = process.env.APPS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbxvJNf_P7JCtQ1eAdK1fswkpkZaNB-q69TiBl13XxbZnLJB3teSLzOvWghAD7tZXoejcw/exec';
 const SCRIPT_KEY = process.env.APPS_SCRIPT_KEY || 'fc_manager_secret_2026';
 
 export async function gsGet(action) {
