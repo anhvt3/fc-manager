@@ -114,6 +114,11 @@ function switchTab(el) {
   state.currentTab = tabId;
 }
 
+function goToTab(tabId) {
+  const el = document.querySelector(`.nav-item[data-tab="${tabId}"]`);
+  if (el) switchTab(el);
+}
+
 function showToast(msg, type = 'success') {
   const t = document.getElementById('toast');
   t.textContent = msg;
