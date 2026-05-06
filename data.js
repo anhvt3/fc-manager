@@ -16,7 +16,8 @@ const INITIAL_MEMBERS = [
   {name:"Trường Nguyễn",number:0,size:"M",status:"active"},
   {name:"Thế Anh",number:53,size:"M",status:"active"},
   {name:"Thanh Sơn",number:12,size:"M",status:"active"},
-  {name:"Như Ý",number:38,size:"M",status:"active"}
+  {name:"Như Ý",number:38,size:"M",status:"active"},
+  {name:"Công Dậu",number:0,size:"M",status:"active",role:"Đi làm"}
 ];
 
 const INITIAL_MATCHES = [
@@ -200,5 +201,9 @@ const INITIAL_FUND_PAYMENTS = [
   {period:8,member:"Hữu Trí",amount:200000},
   {period:8,member:"Thanh Sơn",amount:200000},
   {period:8,member:"Như Ý",amount:100000},
-  {period:8,member:"Thế Anh",amount:100000}
+  {period:8,member:"Thế Anh",amount:100000},
+  {period:9,member:"Xuân Hoàn",amount:200000},
+  {period:9,member:"Văn Khang",amount:200000},
+  {period:9,member:"Minh Phúc",amount:200000},
+  {period:9,member:"Công Dậu",amount:100000}
 ];
