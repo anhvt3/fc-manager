@@ -326,7 +326,7 @@ function renderFund() {
       <div class="fund-avatar">${initials}</div>
       <div class="fund-info">
         <div class="fund-name">${member.name}</div>
-        <div class="fund-detail">${payment ? fmt(payment.amount) + 'đ' + (payment.timestamp ? ' <span style="font-size: 0.75rem; opacity: 0.7; margin-left: 4px;">' + fmtDate(payment.timestamp) + '</span>' : '') : 'Chưa nộp'}</div>
+        <div class="fund-detail" style="display:flex; align-items:center; gap:8px;">${payment ? fmt(payment.amount) + 'đ' + (payment.timestamp ? '<span style="background:rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px; font-size:0.7rem; color:#9ca3af; line-height:1;">' + fmtDate(payment.timestamp) + '</span>' : '') : 'Chưa nộp'}</div>
       </div>
       <div class="fund-status ${payment ? 'paid' : 'unpaid'}">${payment ? '✓ Đã nộp' : '✗ Chưa'}</div>
     </div>`;
