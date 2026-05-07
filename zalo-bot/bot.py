@@ -158,7 +158,7 @@ Hãy phân tích và trả về JSON thuần (không chứa tag markdown như ``
 1. "date": ngày trận đấu (định dạng YYYY-MM-DD), nếu không rõ lấy ngày hôm nay là {datetime.now().strftime('%Y-%m-%d')}
 2. "opponent": tên đối thủ (mặc định "Đối" nếu không nói rõ)
 3. "result": kết quả (chỉ được chọn 1 trong 3: "Thắng", "Thua", "Hòa")
-4. "cost": số tiền chi ra (số nguyên, ví dụ 800000. Nếu không có thì để 0)
+4. "cost": số tiền chi ra để trả tiền sân/nước (số nguyên dương, ví dụ 800000. LƯU Ý QUAN TRỌNG: Dù kết quả là Thắng hay Thua thì số tiền nhắc đến LUÔN LÀ TIỀN CHI RA (âm quỹ), tuyệt đối không hiểu là tiền thưởng. Nếu không nói số tiền thì để 0)
 5. "note": ghi chú thêm (nếu có)
 Nếu nội dung hoàn toàn không liên quan đến trận đấu hoặc chi quỹ, trả về {{"error": "not_match"}}."""
                 
