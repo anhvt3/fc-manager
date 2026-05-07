@@ -17,6 +17,7 @@ GROUP_ID = os.getenv("ZALO_GROUP_ID")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 API_FUNDS_URL = "https://fcfriend.vercel.app/api/funds"
 API_MATCHES_URL = "https://fcfriend.vercel.app/api/matches"
+CAPTAIN_ID = os.getenv("ZALO_CAPTAIN_ID")
 MEMBERS = [
     "Phạm Phúc","Long Nhật","Đào Tiên","Vũ Nguyên (Lều Hữu Nhu)","Viết Quân",
     "Minh Phúc","Trần Quyền","Duy Đông","Xuân Hoàn","Văn Khang",
@@ -142,6 +143,14 @@ Nếu không phải ảnh bill chuyển khoản, trả về {{"error": "not_a_bi
 
             elif is_match_command:
                 logging.info("Phát hiện text lệnh chi quỹ/trận đấu...")
+                
+                if CAPTAIN_ID and str(author_id) != str(CAPTAIN_ID):
+                    self.replyTo(Message(text=f"❌ Cảnh báo: Chỉ Đội trưởng mới có quyền báo cáo trận đấu/chi quỹ!\n(ID của bạn: {author_id})"), message_object, thread_id, thread_type)
+                    return
+                elif not CAPTAIN_ID:
+                    self.replyTo(Message(text=f"⚠️ Bot chưa được cấu hình ZALO_CAPTAIN_ID trong file .env.\nNếu bạn là đội trưởng, hãy thêm:\nZALO_CAPTAIN_ID={author_id}\nvào file .env trên VPS rồi restart bot!"), message_object, thread_id, thread_type)
+                    return
+
                 prompt = f"""Đây là tin nhắn của đội trưởng FC Friend báo cáo kết quả trận đấu và chi phí.
 Tin nhắn: "{text_content}"
 
