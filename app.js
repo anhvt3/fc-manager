@@ -406,7 +406,7 @@ function renderCharts() {
   const fgEl = document.getElementById('recentFormGuide');
   if (fgEl) fgEl.innerHTML = formGuideHtml || '<div class="empty-state"><p>Chưa có dữ liệu</p></div>';
 
-  // --- Process Chart Data ---
+  // --- Process Chart Data (Monthly aggregation for Cumulative Cost) ---
   const months = {};
   state.matches.forEach(m => {
     const k = getMonthKey(m.date);
@@ -422,28 +422,81 @@ function renderCharts() {
   const keys = Object.keys(months).sort();
   const labels = keys.map(k => { const [y, m] = k.split('-'); return `T${+m}/${y.slice(2)}`; });
 
-  // 1. Stacked Bar Chart for Win/Loss/Draw
+  // 1. Form Trajectory Chart (Win/Draw/Loss Sequence for last 20 matches)
+  const recent20 = [...state.matches].sort((a, b) => {
+    const cmp = String(a.date || '').localeCompare(String(b.date || ''));
+    if (cmp !== 0) return cmp;
+    return String(a.timestamp || '').localeCompare(String(b.timestamp || ''));
+  }).slice(-20);
+
+  const seqLabels = recent20.map(m => {
+    const d = new Date(m.date);
+    if(isNaN(d.getTime())) return '';
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}`;
+  });
+
+  const seqData = recent20.map(m => {
+    const r = classifyResult(m.result);
+    return r === 'win' ? 1 : r === 'lose' ? -1 : 0;
+  });
+
+  const seqColors = recent20.map(m => {
+    const r = classifyResult(m.result);
+    return r === 'win' ? '#00ff85' : r === 'lose' ? '#ff005c' : '#00ffff';
+  });
+
   const ctxBar = document.getElementById('resultBarChart');
   if (resultBarChart) resultBarChart.destroy();
   if (ctxBar) {
     resultBarChart = new Chart(ctxBar, {
-      type: 'bar',
+      type: 'line',
       data: {
-        labels,
+        labels: seqLabels,
         datasets: [
-          { label: 'Thắng', data: keys.map(k => months[k].w), backgroundColor: '#00ff85', borderRadius: 6, borderSkipped: false },
-          { label: 'Hòa/Khác', data: keys.map(k => months[k].d), backgroundColor: '#00ffff', borderRadius: 6, borderSkipped: false },
-          { label: 'Thua', data: keys.map(k => months[k].l), backgroundColor: '#ff005c', borderRadius: 6, borderSkipped: false }
+          { 
+            label: 'Phong độ', 
+            data: seqData, 
+            borderColor: 'rgba(255,255,255,0.3)', 
+            borderWidth: 2,
+            borderDash: [5, 5],
+            pointBackgroundColor: seqColors, 
+            pointBorderColor: '#1e1e2f',
+            pointBorderWidth: 2,
+            pointRadius: 6,
+            pointHoverRadius: 8,
+            tension: 0.3
+          }
         ]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: {
-          legend: { position: 'bottom', labels: { color: '#e2e8f0', font: { size: 11, family: 'Inter', weight: 'bold' } } }
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const val = context.raw;
+                return val === 1 ? ' Kết quả: Thắng' : val === -1 ? ' Kết quả: Thua' : ' Kết quả: Hòa';
+              }
+            }
+          }
         },
         scales: {
-          x: { stacked: true, ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { display: false } },
-          y: { stacked: true, ticks: { color: '#9ca3af', font: { size: 10 }, stepSize: 1 }, grid: { color: 'rgba(255,255,255,0.05)' } }
+          x: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { display: false } },
+          y: { 
+            min: -1.5, max: 1.5,
+            ticks: { 
+              color: '#e2e8f0', font: { size: 11, family: 'Inter', weight: 'bold' },
+              stepSize: 1,
+              callback: function(value) {
+                if (value === 1) return 'Thắng';
+                if (value === 0) return 'Hòa';
+                if (value === -1) return 'Thua';
+                return '';
+              }
+            }, 
+            grid: { color: 'rgba(255,255,255,0.05)', zeroLineColor: 'rgba(255,255,255,0.2)' } 
+          }
         }
       }
     });
@@ -924,7 +977,11 @@ async function syncFromSheet(force = false) {
     return;
   }
   try {
-    const url = API_BASE + '/api/init';
+    const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const url = isLocal 
+      ? state.apiUrl + '?action=getAll&key=fc_manager_secret_2026'
+      : '/api/init';
+      
     const res = await fetch(url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
