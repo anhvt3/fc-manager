@@ -387,7 +387,8 @@ function renderFixtures() {
   }).join('') || '<div class="empty-state"><p>Chưa có lịch thi đấu</p></div>';
 }
 
-let resultBarChart = null;
+let formLineChart = null;
+let costResultBarChart = null;
 let cumulativeCostChart = null;
 
 function renderCharts() {
@@ -422,38 +423,118 @@ function renderCharts() {
   const keys = Object.keys(months).sort();
   const labels = keys.map(k => { const [y, m] = k.split('-'); return `T${+m}/${y.slice(2)}`; });
 
-  // 1. Cost & Result Bar Chart (Last 15 matches)
+  // 1. Form Trajectory Chart (Win/Draw/Loss Sequence for last 20 matches)
+  const recent20 = [...state.matches].sort((a, b) => {
+    const cmp = String(a.date || '').localeCompare(String(b.date || ''));
+    if (cmp !== 0) return cmp;
+    return String(a.timestamp || '').localeCompare(String(b.timestamp || ''));
+  }).slice(-20);
+
+  const lineLabels = recent20.map(m => {
+    const d = new Date(m.date);
+    if(isNaN(d.getTime())) return '';
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}`;
+  });
+
+  const lineData = recent20.map(m => {
+    const r = classifyResult(m.result);
+    return r === 'win' ? 1 : r === 'lose' ? -1 : 0;
+  });
+
+  const lineColors = recent20.map(m => {
+    const r = classifyResult(m.result);
+    return r === 'win' ? '#00ff85' : r === 'lose' ? '#ff005c' : '#00ffff';
+  });
+
+  const ctxLine = document.getElementById('formLineChart');
+  if (formLineChart) formLineChart.destroy();
+  if (ctxLine) {
+    formLineChart = new Chart(ctxLine, {
+      type: 'line',
+      data: {
+        labels: lineLabels,
+        datasets: [
+          { 
+            label: 'Phong độ', 
+            data: lineData, 
+            borderColor: 'rgba(255,255,255,0.3)', 
+            borderWidth: 2,
+            borderDash: [5, 5],
+            pointBackgroundColor: lineColors, 
+            pointBorderColor: '#1e1e2f',
+            pointBorderWidth: 2,
+            pointRadius: 6,
+            pointHoverRadius: 8,
+            tension: 0.3
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const val = context.raw;
+                return val === 1 ? ' Kết quả: Thắng' : val === -1 ? ' Kết quả: Thua' : ' Kết quả: Hòa';
+              }
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { display: false } },
+          y: { 
+            min: -1.5, max: 1.5,
+            ticks: { 
+              color: '#e2e8f0', font: { size: 11, family: 'Inter', weight: 'bold' },
+              stepSize: 1,
+              callback: function(value) {
+                if (value === 1) return 'Thắng';
+                if (value === 0) return 'Hòa';
+                if (value === -1) return 'Thua';
+                return '';
+              }
+            }, 
+            grid: { color: 'rgba(255,255,255,0.05)', zeroLineColor: 'rgba(255,255,255,0.2)' } 
+          }
+        }
+      }
+    });
+  }
+
+  // 2. Cost & Result Bar Chart (Last 15 matches)
   const recent15 = [...state.matches].sort((a, b) => {
     const cmp = String(a.date || '').localeCompare(String(b.date || ''));
     if (cmp !== 0) return cmp;
     return String(a.timestamp || '').localeCompare(String(b.timestamp || ''));
   }).slice(-15);
 
-  const seqLabels = recent15.map(m => {
+  const barLabels = recent15.map(m => {
     const d = new Date(m.date);
     if(isNaN(d.getTime())) return '';
     return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}`;
   });
 
-  const seqCostData = recent15.map(m => Number(m.cost) || 0);
+  const barCostData = recent15.map(m => Number(m.cost) || 0);
 
-  const seqColors = recent15.map(m => {
+  const barColors = recent15.map(m => {
     const r = classifyResult(m.result);
     return r === 'win' ? '#00ff85' : r === 'lose' ? '#ff005c' : '#00ffff';
   });
 
-  const ctxBar = document.getElementById('resultBarChart');
-  if (resultBarChart) resultBarChart.destroy();
+  const ctxBar = document.getElementById('costResultBarChart');
+  if (costResultBarChart) costResultBarChart.destroy();
   if (ctxBar) {
-    resultBarChart = new Chart(ctxBar, {
+    costResultBarChart = new Chart(ctxBar, {
       type: 'bar',
       data: {
-        labels: seqLabels,
+        labels: barLabels,
         datasets: [
           { 
             label: 'Chi phí', 
-            data: seqCostData, 
-            backgroundColor: seqColors, 
+            data: barCostData, 
+            backgroundColor: barColors, 
             borderRadius: 6,
             borderSkipped: false
           }
