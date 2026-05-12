@@ -7,6 +7,7 @@ let state = {
 };
 
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwTwIM-vhQir-WTdCksw6sstVUGl7lomLUxR_OQnpKvMQNgVOdF93S5xIqGJMJTgLFAqg/exec';
+const API_BASE = (window.location.protocol === 'file:' || window.location.hostname === 'localhost') ? 'https://fcfriend.vercel.app' : '';
 
 function safeParse(key, fallback) {
   try {
@@ -161,6 +162,7 @@ function renderAll() {
   renderFund();
   renderMembers();
   renderFixtures();
+  renderCharts();
 }
 
 function renderDashboard() {
@@ -256,10 +258,9 @@ function renderMonthlyChart() {
 
 function renderRecentMatches() {
   const recent = [...state.matches].sort((a, b) => {
-    const tA = a.timestamp || '';
-    const tB = b.timestamp || '';
-    if (tA && tB && tA !== tB) return tB.localeCompare(tA);
-    return b.date.localeCompare(a.date);
+    const cmp = String(b.date || '').localeCompare(String(a.date || ''));
+    if (cmp !== 0) return cmp;
+    return String(b.timestamp || '').localeCompare(String(a.timestamp || ''));
   }).slice(0, 5);
   document.getElementById('recentCount').textContent = `${state.matches.length} trận`;
   document.getElementById('recentMatches').innerHTML = recent.map(m => matchItemHTML(m)).join('');
@@ -289,10 +290,9 @@ function renderMatches() {
 
   let filtered = state.selectedMonth === 'all' ? state.matches : state.matches.filter(m => getMonthKey(m.date) === state.selectedMonth);
   filtered = [...filtered].sort((a, b) => {
-    const tA = a.timestamp || '';
-    const tB = b.timestamp || '';
-    if (tA && tB && tA !== tB) return tB.localeCompare(tA);
-    return String(b.date || '').localeCompare(String(a.date || ''));
+    const cmp = String(b.date || '').localeCompare(String(a.date || ''));
+    if (cmp !== 0) return cmp;
+    return String(b.timestamp || '').localeCompare(String(a.timestamp || ''));
   });
 
   const w = filtered.filter(m => classifyResult(m.result) === 'win').length;
@@ -385,6 +385,131 @@ function renderFixtures() {
       ${f.status === 'upcoming' ? `<button class="btn btn-primary" style="width:auto;padding:6px 10px;font-size:0.7rem;margin-left:auto;flex-shrink:0" onclick="event.stopPropagation();completeFixture('${f.timestamp}')">✅ Xong</button>` : ''}
     </div>`;
   }).join('') || '<div class="empty-state"><p>Chưa có lịch thi đấu</p></div>';
+}
+
+let resultBarChart = null;
+let cumulativeCostChart = null;
+
+function renderCharts() {
+  // --- Form Guide (5 Trận Gần Nhất) ---
+  const recentForm = [...state.matches].sort((a, b) => {
+    const cmp = String(a.date || '').localeCompare(String(b.date || ''));
+    if (cmp !== 0) return cmp;
+    return String(a.timestamp || '').localeCompare(String(b.timestamp || ''));
+  }).slice(-5); // Get last 5
+
+  const formGuideHtml = recentForm.map(m => {
+    const res = classifyResult(m.result);
+    const label = res === 'win' ? 'W' : res === 'lose' ? 'L' : 'D';
+    return `<div class="form-badge ${res}">${label}</div>`;
+  }).join('');
+  const fgEl = document.getElementById('recentFormGuide');
+  if (fgEl) fgEl.innerHTML = formGuideHtml || '<div class="empty-state"><p>Chưa có dữ liệu</p></div>';
+
+  // --- Process Chart Data ---
+  const months = {};
+  state.matches.forEach(m => {
+    const k = getMonthKey(m.date);
+    if (!k) return;
+    if (!months[k]) months[k] = { w: 0, l: 0, d: 0, cost: 0 };
+    const res = classifyResult(m.result);
+    if (res === 'win') months[k].w++;
+    else if (res === 'lose') months[k].l++;
+    else months[k].d++;
+    months[k].cost += (Number(m.cost) || 0);
+  });
+
+  const keys = Object.keys(months).sort();
+  const labels = keys.map(k => { const [y, m] = k.split('-'); return `T${+m}/${y.slice(2)}`; });
+
+  // 1. Stacked Bar Chart for Win/Loss/Draw
+  const ctxBar = document.getElementById('resultBarChart');
+  if (resultBarChart) resultBarChart.destroy();
+  if (ctxBar) {
+    resultBarChart = new Chart(ctxBar, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Thắng', data: keys.map(k => months[k].w), backgroundColor: '#00ff85', borderRadius: 6, borderSkipped: false },
+          { label: 'Hòa/Khác', data: keys.map(k => months[k].d), backgroundColor: '#00ffff', borderRadius: 6, borderSkipped: false },
+          { label: 'Thua', data: keys.map(k => months[k].l), backgroundColor: '#ff005c', borderRadius: 6, borderSkipped: false }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { color: '#e2e8f0', font: { size: 11, family: 'Inter', weight: 'bold' } } }
+        },
+        scales: {
+          x: { stacked: true, ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { display: false } },
+          y: { stacked: true, ticks: { color: '#9ca3af', font: { size: 10 }, stepSize: 1 }, grid: { color: 'rgba(255,255,255,0.05)' } }
+        }
+      }
+    });
+  }
+
+  // 2. Line Chart for Cumulative Cost
+  const ctxLine = document.getElementById('cumulativeCostChart');
+  if (cumulativeCostChart) cumulativeCostChart.destroy();
+  if (ctxLine) {
+    let cum = 0;
+    const cumData = keys.map(k => { cum += months[k].cost; return cum; });
+    
+    const ctx2d = ctxLine.getContext('2d');
+    const gradient = ctx2d.createLinearGradient(0, 0, 0, 250);
+    gradient.addColorStop(0, 'rgba(255, 0, 92, 0.5)'); // Neon pink transparent
+    gradient.addColorStop(1, 'rgba(255, 0, 92, 0.0)');
+
+    cumulativeCostChart = new Chart(ctxLine, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Tổng chi phí',
+          data: cumData,
+          borderColor: '#ff005c',
+          backgroundColor: gradient,
+          fill: true,
+          tension: 0.4,
+          borderWidth: 3,
+          pointBackgroundColor: '#151824',
+          pointBorderColor: '#ff005c',
+          pointBorderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointHoverBackgroundColor: '#ff005c',
+          pointHoverBorderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1e2233',
+            titleColor: '#00ffff',
+            bodyColor: '#fff',
+            borderColor: '#37003c',
+            borderWidth: 1,
+            padding: 10,
+            callbacks: {
+              label: function(context) {
+                let label = context.dataset.label || '';
+                if (label) { label += ': '; }
+                if (context.parsed.y !== null) { label += fmt(context.parsed.y) + 'đ'; }
+                return label;
+              }
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { display: false } },
+          y: { ticks: { color: '#9ca3af', font: { size: 10 }, callback: v => fmt(v) }, grid: { color: 'rgba(255,255,255,0.05)' } }
+        }
+      }
+    });
+  }
 }
 
 async function saveMatch(btn) {
@@ -735,7 +860,8 @@ function completeFixture(ts) {
 async function apiCall(endpoint, method, body) {
   state.pendingWrites++;
   try {
-    const res = await fetch(endpoint, {
+    const url = endpoint.startsWith('/') ? API_BASE + endpoint : endpoint;
+    const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined
@@ -798,7 +924,8 @@ async function syncFromSheet(force = false) {
     return;
   }
   try {
-    const res = await fetch('/api/init');
+    const url = API_BASE + '/api/init';
+    const res = await fetch(url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     if (data && data.error) throw new Error(data.error);

@@ -54,7 +54,7 @@
 
         <div class="card">
           <div class="card-title">Tỷ lệ thắng thua</div>
-          <div class="donut-container">
+          <div class="donut-container" onclick="goToTab('tabCharts')" style="cursor: pointer;" title="Xem chi tiết biểu đồ">
             <canvas id="winRateChart" class="donut-chart" width="100" height="100"></canvas>
             <div class="donut-legend" id="winRateLegend"></div>
           </div>
@@ -130,6 +130,31 @@
         </div>
         <div id="fixtureList"></div>
       </div>
+
+      <!-- Charts Tab -->
+      <div class="tab-panel" id="tabCharts">
+        <div class="section-title">
+          Biểu đồ phân tích chuyên sâu
+        </div>
+        <div class="card" style="background: linear-gradient(145deg, #1e2233, #151824); border: 1px solid #37003c;">
+          <div class="card-title" style="color: #00ff85; letter-spacing: 1px;">PHONG ĐỘ 5 TRẬN GẦN NHẤT</div>
+          <div class="form-guide" id="recentFormGuide">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+        <div class="card" style="background: linear-gradient(145deg, #1e2233, #151824);">
+          <div class="card-title" style="color: #00ffff; letter-spacing: 1px;">KẾT QUẢ THEO THÁNG</div>
+          <div class="chart-container" style="height: 250px; padding-top: 10px;">
+            <canvas id="resultBarChart"></canvas>
+          </div>
+        </div>
+        <div class="card" style="background: linear-gradient(145deg, #1e2233, #151824);">
+          <div class="card-title" style="color: #ff005c; letter-spacing: 1px;">CHI PHÍ & TÍCH LŨY</div>
+          <div class="chart-container" style="height: 250px; padding-top: 10px;">
+            <canvas id="cumulativeCostChart"></canvas>
+          </div>
+        </div>
+      </div>
     </main>
 
     <!-- FAB -->
@@ -181,6 +206,12 @@
           <line x1="3" y1="10" x2="21" y2="10" />
         </svg>
         <span>Lên kèo</span>
+      </div>
+      <div class="nav-item" data-tab="tabCharts" onclick="switchTab(this)">
+        <svg viewBox="0 0 24 24">
+          <path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+        <span>Biểu đồ</span>
       </div>
     </nav>
 

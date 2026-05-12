@@ -607,6 +607,30 @@ body {
   margin-top: 8px;
 }
 
+/* Form Guide UI */
+.form-guide {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  padding: 15px 0 5px;
+}
+
+.form-badge {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 1rem;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.form-badge.win { background: #00ff85; color: #0f1117; box-shadow: 0 0 12px rgba(0,255,133,0.3); }
+.form-badge.lose { background: #ff005c; box-shadow: 0 0 12px rgba(255,0,92,0.3); }
+.form-badge.draw { background: #cbd5e1; color: #0f1117; }
+
 /* Toast */
 .toast {
   position: fixed;
