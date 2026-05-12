@@ -422,25 +422,22 @@ function renderCharts() {
   const keys = Object.keys(months).sort();
   const labels = keys.map(k => { const [y, m] = k.split('-'); return `T${+m}/${y.slice(2)}`; });
 
-  // 1. Form Trajectory Chart (Win/Draw/Loss Sequence for last 20 matches)
-  const recent20 = [...state.matches].sort((a, b) => {
+  // 1. Cost & Result Bar Chart (Last 15 matches)
+  const recent15 = [...state.matches].sort((a, b) => {
     const cmp = String(a.date || '').localeCompare(String(b.date || ''));
     if (cmp !== 0) return cmp;
     return String(a.timestamp || '').localeCompare(String(b.timestamp || ''));
-  }).slice(-20);
+  }).slice(-15);
 
-  const seqLabels = recent20.map(m => {
+  const seqLabels = recent15.map(m => {
     const d = new Date(m.date);
     if(isNaN(d.getTime())) return '';
     return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}`;
   });
 
-  const seqData = recent20.map(m => {
-    const r = classifyResult(m.result);
-    return r === 'win' ? 1 : r === 'lose' ? -1 : 0;
-  });
+  const seqCostData = recent15.map(m => Number(m.cost) || 0);
 
-  const seqColors = recent20.map(m => {
+  const seqColors = recent15.map(m => {
     const r = classifyResult(m.result);
     return r === 'win' ? '#00ff85' : r === 'lose' ? '#ff005c' : '#00ffff';
   });
@@ -449,22 +446,16 @@ function renderCharts() {
   if (resultBarChart) resultBarChart.destroy();
   if (ctxBar) {
     resultBarChart = new Chart(ctxBar, {
-      type: 'line',
+      type: 'bar',
       data: {
         labels: seqLabels,
         datasets: [
           { 
-            label: 'Phong độ', 
-            data: seqData, 
-            borderColor: 'rgba(255,255,255,0.3)', 
-            borderWidth: 2,
-            borderDash: [5, 5],
-            pointBackgroundColor: seqColors, 
-            pointBorderColor: '#1e1e2f',
-            pointBorderWidth: 2,
-            pointRadius: 6,
-            pointHoverRadius: 8,
-            tension: 0.3
+            label: 'Chi phí', 
+            data: seqCostData, 
+            backgroundColor: seqColors, 
+            borderRadius: 6,
+            borderSkipped: false
           }
         ]
       },
@@ -475,8 +466,10 @@ function renderCharts() {
           tooltip: {
             callbacks: {
               label: function(context) {
-                const val = context.raw;
-                return val === 1 ? ' Kết quả: Thắng' : val === -1 ? ' Kết quả: Thua' : ' Kết quả: Hòa';
+                const idx = context.dataIndex;
+                const m = recent15[idx];
+                const cost = parseInt(m.cost || 0).toLocaleString('vi-VN') + ' đ';
+                return ` Chi phí: ${cost} | Kết quả: ${m.result || 'Khác'}`;
               }
             }
           }
@@ -484,18 +477,12 @@ function renderCharts() {
         scales: {
           x: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { display: false } },
           y: { 
-            min: -1.5, max: 1.5,
+            beginAtZero: true,
             ticks: { 
-              color: '#e2e8f0', font: { size: 11, family: 'Inter', weight: 'bold' },
-              stepSize: 1,
-              callback: function(value) {
-                if (value === 1) return 'Thắng';
-                if (value === 0) return 'Hòa';
-                if (value === -1) return 'Thua';
-                return '';
-              }
+              color: '#9ca3af', font: { size: 10 },
+              callback: function(value) { return (value / 1000) + 'K'; }
             }, 
-            grid: { color: 'rgba(255,255,255,0.05)', zeroLineColor: 'rgba(255,255,255,0.2)' } 
+            grid: { color: 'rgba(255,255,255,0.05)' } 
           }
         }
       }
