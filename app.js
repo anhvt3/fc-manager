@@ -570,19 +570,19 @@ function renderCharts() {
     });
   }
 
-  // 2. Line Chart for Cumulative Cost
-  const ctxLine = document.getElementById('cumulativeCostChart');
+  // 3. Line Chart for Cumulative Cost
+  const ctxCumLine = document.getElementById('cumulativeCostChart');
   if (cumulativeCostChart) cumulativeCostChart.destroy();
-  if (ctxLine) {
+  if (ctxCumLine) {
     let cum = 0;
     const cumData = keys.map(k => { cum += months[k].cost; return cum; });
     
-    const ctx2d = ctxLine.getContext('2d');
+    const ctx2d = ctxCumLine.getContext('2d');
     const gradient = ctx2d.createLinearGradient(0, 0, 0, 250);
     gradient.addColorStop(0, 'rgba(255, 0, 92, 0.5)'); // Neon pink transparent
     gradient.addColorStop(1, 'rgba(255, 0, 92, 0.0)');
 
-    cumulativeCostChart = new Chart(ctxLine, {
+    cumulativeCostChart = new Chart(ctxCumLine, {
       type: 'line',
       data: {
         labels,
