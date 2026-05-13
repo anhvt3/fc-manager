@@ -17,7 +17,9 @@ const INITIAL_MEMBERS = [
   {name:"Thế Anh",number:53,size:"M",status:"active"},
   {name:"Thanh Sơn",number:12,size:"M",status:"active"},
   {name:"Như Ý",number:38,size:"M",status:"active"},
-  {name:"Công Dậu",number:0,size:"M",status:"active",role:"Đi làm"}
+  {name:"Công Dậu",number:0,size:"M",status:"active",role:"Đi làm"},
+  {name:"Đinh Trường Chính",number:0,size:"M",status:"active"},
+  {name:"Huy 2001",number:0,size:"M",status:"active"}
 ];
 
 const INITIAL_MATCHES = [
@@ -102,7 +104,9 @@ const INITIAL_MATCHES = [
   {date:"2026-04-14",opponent:"FC BPV",result:"Thua",cost:650000,note:""},
   {date:"2026-04-17",opponent:"FC Coodmate",result:"Thắng",cost:300000,note:""},
   {date:"2026-04-21",opponent:"Đối",result:"Thua",cost:500000,note:""},
-  {date:"2026-04-24",opponent:"Đối",result:"Thua",cost:500000,note:""}
+  {date:"2026-04-24",opponent:"Đối",result:"Thua",cost:500000,note:""},
+  {date:"2026-05-05 00:00:00",opponent:"Fc Dương râu ",result:"Thua",cost:705000,note:""},
+  {date:"2026-05-08 00:00:00",opponent:"Anh Vũ",result:"Thắng",cost:300000,note:"Zalo Bot auto"}
 ];
 
 let FUND_PERIODS = [
