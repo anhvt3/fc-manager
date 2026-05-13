@@ -985,7 +985,8 @@ async function apiCall(endpoint, method, body) {
     const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: body ? JSON.stringify(body) : undefined
+      body: body ? JSON.stringify(body) : undefined,
+      cache: 'no-store'
     });
     if (!res.ok) {
       console.error('API non-OK:', endpoint, res.status);
@@ -1050,7 +1051,7 @@ async function syncFromSheet(force = false) {
       ? state.apiUrl + '?action=getAll&key=fc_manager_secret_2026'
       : '/api/init';
       
-    const res = await fetch(url);
+    const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     if (data && data.error) throw new Error(data.error);
