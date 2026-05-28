@@ -357,14 +357,11 @@ function renderFund() {
     if (p.timestamp) orphanByKey.get(k).timestamps.push(p.timestamp);
   }
 
-  const expected = Number(period.amount) || 0;
-
   const html = memberRows.map(member => {
     const memberPayments = payments.filter(p => normName(p.member) === normName(member.name));
     const paidAmount = memberPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
     const hasPaid = memberPayments.length > 0;
     const latestTs = memberPayments.map(p => p.timestamp).filter(Boolean).sort().pop();
-    const isFullyPaid = expected > 0 ? paidAmount >= expected : hasPaid;
     const initials = safeInitial(member.name);
     const pausedTag = member.status === 'paused' ? ' <span class="paused-tag">(tạm nghỉ)</span>' : '';
     const countBadge = memberPayments.length > 1
@@ -373,12 +370,8 @@ function renderFund() {
     const tsBadge = latestTs
       ? `<span style="background:rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px; font-size:0.7rem; color:#9ca3af; line-height:1;">${fmtDate(latestTs)}</span>`
       : '';
-    const statusCls = hasPaid ? (isFullyPaid ? 'paid' : 'partial') : 'unpaid';
-    const statusLabel = !hasPaid
-      ? '✗ Chưa'
-      : expected > 0 && paidAmount < expected
-        ? `⚠ Thiếu ${fmt(expected - paidAmount)}đ`
-        : '✓ Đã nộp';
+    const statusCls = hasPaid ? 'paid' : 'unpaid';
+    const statusLabel = hasPaid ? '✓ Đã nộp' : '✗ Chưa';
     return `<div class="fund-row">
       <div class="fund-avatar">${initials}</div>
       <div class="fund-info">
