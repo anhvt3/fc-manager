@@ -358,6 +358,8 @@ body {
 }
 .fund-status.paid { background: rgba(16,185,129,0.15); color: var(--win); }
 .fund-status.unpaid { background: rgba(239,68,68,0.15); color: var(--lose); }
+.fund-status.partial { background: rgba(245,158,11,0.15); color: var(--warning); }
+.paused-tag { color: var(--text-muted); font-size: 0.7rem; font-weight: 400; }
 
 /* Member card */
 .member-card {

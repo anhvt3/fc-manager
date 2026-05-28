@@ -67,6 +67,12 @@ function fmtDate(d) {
 
 function getMonthKey(d) { return (d || '').toString().substring(0, 7); }
 
+// Canonical normalizers for identity matching across Sheet + bot + user input.
+// Use these EVERYWHERE we compare member names or period strings to prevent the
+// "lệch T5" bug class from recurring (casing drift, whitespace, zero-padded month).
+const normName = (s) => String(s || '').trim().toLocaleLowerCase('vi-VN');
+const normPeriod = (s) => String(s || '').trim().replace(/\s+/g, ' ').replace(/T0(\d)\//, 'T$1/');
+
 function safeInitial(name) {
   const s = String(name || '').trim();
   if (!s) return '?';
@@ -318,17 +324,41 @@ function renderFund() {
   const total = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
   document.getElementById('fundPeriodTotal').textContent = fmt(total) + 'đ';
 
-  const activeMembers = state.members.filter(m => m.status === 'active');
-  const html = activeMembers.map(member => {
-    const payment = payments.find(p => p.member === member.name);
+  // Show: every active member + any member appearing in payments (catches paused
+  // members whose payments would otherwise vanish from UI while counting in Dashboard).
+  const activeKeys = new Set(state.members.filter(m => m.status === 'active').map(m => normName(m.name)));
+  const paidKeys = new Set(payments.map(p => normName(p.member)));
+  const memberRows = state.members.filter(m => activeKeys.has(normName(m.name)) || paidKeys.has(normName(m.name)));
+
+  const expected = Number(period.amount) || 0;
+
+  const html = memberRows.map(member => {
+    const memberPayments = payments.filter(p => normName(p.member) === normName(member.name));
+    const paidAmount = memberPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    const hasPaid = memberPayments.length > 0;
+    const latestTs = memberPayments.map(p => p.timestamp).filter(Boolean).sort().pop();
+    const isFullyPaid = expected > 0 ? paidAmount >= expected : hasPaid;
     const initials = safeInitial(member.name);
+    const pausedTag = member.status === 'paused' ? ' <span class="paused-tag">(tạm nghỉ)</span>' : '';
+    const countBadge = memberPayments.length > 1
+      ? `<span style="background:rgba(245,158,11,0.15); color:#f59e0b; padding:2px 6px; border-radius:4px; font-size:0.7rem; line-height:1;">${memberPayments.length} lần</span>`
+      : '';
+    const tsBadge = latestTs
+      ? `<span style="background:rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px; font-size:0.7rem; color:#9ca3af; line-height:1;">${fmtDate(latestTs)}</span>`
+      : '';
+    const statusCls = hasPaid ? (isFullyPaid ? 'paid' : 'partial') : 'unpaid';
+    const statusLabel = !hasPaid
+      ? '✗ Chưa'
+      : expected > 0 && paidAmount < expected
+        ? `⚠ Thiếu ${fmt(expected - paidAmount)}đ`
+        : '✓ Đã nộp';
     return `<div class="fund-row">
       <div class="fund-avatar">${initials}</div>
       <div class="fund-info">
-        <div class="fund-name">${member.name}</div>
-        <div class="fund-detail" style="display:flex; align-items:center; gap:8px;">${payment ? fmt(payment.amount) + 'đ' + (payment.timestamp ? '<span style="background:rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px; font-size:0.7rem; color:#9ca3af; line-height:1;">' + fmtDate(payment.timestamp) + '</span>' : '') : 'Chưa nộp'}</div>
+        <div class="fund-name">${member.name}${pausedTag}</div>
+        <div class="fund-detail" style="display:flex; align-items:center; gap:8px;">${hasPaid ? fmt(paidAmount) + 'đ' : 'Chưa nộp'}${tsBadge}${countBadge}</div>
       </div>
-      <div class="fund-status ${payment ? 'paid' : 'unpaid'}">${payment ? '✓ Đã nộp' : '✗ Chưa'}</div>
+      <div class="fund-status ${statusCls}">${statusLabel}</div>
     </div>`;
   }).join('') || '<div class="empty-state"><p>Chưa có thành viên hoạt động</p></div>';
   document.getElementById('fundList').innerHTML = html;
@@ -348,7 +378,7 @@ function renderMembers() {
   document.getElementById('memberList').innerHTML = state.members.map((m, i) => {
     const initials = safeInitial(m.name);
     const bg = colors[i % colors.length];
-    const totalPaid = state.fundPayments.filter(p => p.member === m.name).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    const totalPaid = state.fundPayments.filter(p => normName(p.member) === normName(m.name)).reduce((s, p) => s + (Number(p.amount) || 0), 0);
     const safeName = String(m.name || '').replace(/'/g, "\\'");
     return `<div class="member-card" onclick="openEditMember('${safeName}')">
       <div class="member-avatar" style="background:linear-gradient(135deg,${bg},${bg}cc)">${initials}</div>
@@ -691,7 +721,10 @@ async function saveFund(btn) {
   const periodObj = FUND_PERIODS.find(p => p.id === periodId);
   const periodName = periodObj ? periodObj.name : `Đợt ${periodId}`;
 
-  const existing = state.fundPayments.findIndex(p => p.period === periodId && p.member === member);
+  // Always upsert. POST (append) was creating duplicate rows when local cache went
+  // stale or bot/user raced — Sheet ended up with N rows, app's old find() showed 1.
+  // Upsert closes that class.
+  const existing = state.fundPayments.findIndex(p => p.period === periodId && normName(p.member) === normName(member));
   const isUpdate = existing >= 0;
   const prevSnapshot = isUpdate ? { ...state.fundPayments[existing] } : null;
 
@@ -700,10 +733,7 @@ async function saveFund(btn) {
 
   save(); renderAll(); closeModal('modalFund');
 
-  // PUT khi update để tránh duplicate row trên Sheet, POST khi tạo mới
-  const ok = isUpdate
-    ? await apiCall('/api/funds', 'PUT', { period: periodName, member, amount, note })
-    : await apiCall('/api/funds', 'POST', { period: periodName, member, amount, note });
+  const ok = await apiCall('/api/funds', 'PUT', { period: periodName, member, amount, note });
 
   if (!ok) {
     if (isUpdate && prevSnapshot) state.fundPayments[existing] = prevSnapshot;
@@ -772,7 +802,7 @@ async function updateMember(btn) {
   let renamedFunds = [];
   if (origName !== name) {
     state.fundPayments.forEach(p => {
-      if (p.member === origName) { renamedFunds.push(p); p.member = name; }
+      if (normName(p.member) === normName(origName)) { renamedFunds.push(p); p.member = name; }
     });
   }
   save(); renderAll(); closeModal('modalMemberEdit');
@@ -1029,8 +1059,14 @@ function lockButton(btn) {
 function updateSyncStatus() {
   const dot = document.getElementById('syncDot');
   const text = document.getElementById('syncText');
-  dot.style.background = '#10b981';
-  text.textContent = 'Đã kết nối';
+  const orphan = state.diagnostics && state.diagnostics.orphanPeriodCount;
+  if (orphan) {
+    dot.style.background = '#f59e0b';
+    text.innerHTML = `Đã kết nối · <span style="color:#f59e0b;cursor:help" title="Đợt không khớp: ${(state.diagnostics.orphanPeriodSamples || []).join(', ') || '—'}">${orphan} khoản lệch đợt</span>`;
+  } else {
+    dot.style.background = '#10b981';
+    text.textContent = 'Đã kết nối';
+  }
 }
 
 function connectApi() {
@@ -1059,13 +1095,21 @@ async function syncFromSheet(force = false) {
     if (Array.isArray(data.matches)) { state.matches = data.matches; }
     if (Array.isArray(data.fixtures)) { state.fixtures = data.fixtures; }
     if (Array.isArray(data.fundPayments)) {
+      let orphanPeriodCount = 0;
+      const orphanPeriodSamples = new Set();
       state.fundPayments = data.fundPayments.map(p => {
-        const pd = FUND_PERIODS.find(f => f.name === p.period);
-        return { ...p, period: pd ? pd.id : 0, amount: Number(p.amount) || 0 };
+        const raw = normPeriod(p.period);
+        const pd = FUND_PERIODS.find(f => normPeriod(f.name) === raw);
+        if (!pd) { orphanPeriodCount++; if (orphanPeriodSamples.size < 5) orphanPeriodSamples.add(raw); }
+        return { ...p, period: pd ? pd.id : 0, periodRaw: raw, amount: Number(p.amount) || 0 };
       });
+      state.diagnostics = { orphanPeriodCount, orphanPeriodSamples: [...orphanPeriodSamples] };
+      if (orphanPeriodCount > 0) {
+        console.warn(`syncFromSheet: ${orphanPeriodCount} payment(s) have unrecognized period. Samples:`, [...orphanPeriodSamples]);
+      }
     }
     state.initialSynced = true;
-    save(); renderAll();
+    save(); renderAll(); updateSyncStatus();
     showToast('Đồng bộ thành công ✅');
   } catch (e) {
     console.error('Sync error:', e);
