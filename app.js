@@ -36,11 +36,23 @@ function init() {
   syncFromSheet();
 }
 
+// EC-9: localStorage can throw — QuotaExceededError on huge growth, SecurityError
+// on Safari incognito / strict cookie modes. Without this guard, optimistic
+// updates appear to succeed in memory but vanish on reload, with no toast or log.
+let _saveWarnShown = false;
 function save() {
-  localStorage.setItem('fc_members', JSON.stringify(state.members));
-  localStorage.setItem('fc_matches', JSON.stringify(state.matches));
-  localStorage.setItem('fc_fund', JSON.stringify(state.fundPayments));
-  localStorage.setItem('fc_fixtures', JSON.stringify(state.fixtures));
+  try {
+    localStorage.setItem('fc_members', JSON.stringify(state.members));
+    localStorage.setItem('fc_matches', JSON.stringify(state.matches));
+    localStorage.setItem('fc_fund', JSON.stringify(state.fundPayments));
+    localStorage.setItem('fc_fixtures', JSON.stringify(state.fixtures));
+  } catch (e) {
+    console.error('localStorage save failed:', e.name, e.message);
+    if (!_saveWarnShown) {
+      _saveWarnShown = true;
+      showToast('Trình duyệt chặn lưu cục bộ — dữ liệu sẽ mất khi reload', 'error');
+    }
+  }
 }
 
 function fmt(n) {
@@ -320,15 +332,30 @@ function renderFund() {
   if (!period) return;
   document.getElementById('fundPeriodLabel').textContent = period.name;
 
-  const payments = state.fundPayments.filter(p => p.period === period.id);
+  // EC-6: identity = period.name (string), not array index. Backward compat:
+  // also match legacy numeric id from old localStorage cache so first paint
+  // after upgrade doesn't show empty Fund tab.
+  const payments = state.fundPayments.filter(p => p.period === period.name || p.period === period.id);
   const total = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
   document.getElementById('fundPeriodTotal').textContent = fmt(total) + 'đ';
 
   // Show: every active member + any member appearing in payments (catches paused
   // members whose payments would otherwise vanish from UI while counting in Dashboard).
+  const memberKeys = new Set(state.members.map(m => normName(m.name)));
   const activeKeys = new Set(state.members.filter(m => m.status === 'active').map(m => normName(m.name)));
   const paidKeys = new Set(payments.map(p => normName(p.member)));
   const memberRows = state.members.filter(m => activeKeys.has(normName(m.name)) || paidKeys.has(normName(m.name)));
+  // EC-7: orphan payments — payer name not in ThanhVien (deleted member or bot-typo).
+  // Without surfacing these, Dashboard total ≠ sum of Fund tab rows, and the
+  // money looks "lost" to the user even though it's on the Sheet.
+  const orphanByKey = new Map();
+  for (const p of payments) {
+    const k = normName(p.member);
+    if (memberKeys.has(k)) continue;
+    if (!orphanByKey.has(k)) orphanByKey.set(k, { name: p.member, amounts: [], timestamps: [] });
+    orphanByKey.get(k).amounts.push(Number(p.amount) || 0);
+    if (p.timestamp) orphanByKey.get(k).timestamps.push(p.timestamp);
+  }
 
   const expected = Number(period.amount) || 0;
 
@@ -361,7 +388,28 @@ function renderFund() {
       <div class="fund-status ${statusCls}">${statusLabel}</div>
     </div>`;
   }).join('') || '<div class="empty-state"><p>Chưa có thành viên hoạt động</p></div>';
-  document.getElementById('fundList').innerHTML = html;
+
+  // EC-7: render orphan section after the main list. Surfaces "Sheet has it,
+  // app can't attribute it" — exact symptom the user reports as "lệch".
+  let orphanHtml = '';
+  if (orphanByKey.size > 0) {
+    const orphanRows = [...orphanByKey.values()].map(o => {
+      const sum = o.amounts.reduce((s, n) => s + n, 0);
+      const latestTs = o.timestamps.sort().pop();
+      const tsBadge = latestTs ? `<span style="background:rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px; font-size:0.7rem; color:#9ca3af; line-height:1;">${fmtDate(latestTs)}</span>` : '';
+      const countBadge = o.amounts.length > 1 ? `<span style="background:rgba(245,158,11,0.15); color:#f59e0b; padding:2px 6px; border-radius:4px; font-size:0.7rem; line-height:1;">${o.amounts.length} lần</span>` : '';
+      return `<div class="fund-row">
+        <div class="fund-avatar" style="background:#5f3a1e">?</div>
+        <div class="fund-info">
+          <div class="fund-name">${o.name} <span class="paused-tag">(không có trong DS)</span></div>
+          <div class="fund-detail" style="display:flex; align-items:center; gap:8px;">${fmt(sum)}đ${tsBadge}${countBadge}</div>
+        </div>
+        <div class="fund-status partial">⚠ Mồ côi</div>
+      </div>`;
+    }).join('');
+    orphanHtml = `<div style="margin-top:12px; padding-top:8px; border-top:1px dashed var(--border)"><div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:8px;">Khoản nộp không khớp thành viên — thêm tên vào DS hoặc sửa tên trên Sheet</div>${orphanRows}</div>`;
+  }
+  document.getElementById('fundList').innerHTML = html + orphanHtml;
 }
 
 function changeFundPeriod(dir) {
@@ -724,12 +772,16 @@ async function saveFund(btn) {
   // Always upsert. POST (append) was creating duplicate rows when local cache went
   // stale or bot/user raced — Sheet ended up with N rows, app's old find() showed 1.
   // Upsert closes that class.
-  const existing = state.fundPayments.findIndex(p => p.period === periodId && normName(p.member) === normName(member));
+  // EC-6: match by period NAME so optimistic update works regardless of whether
+  // cached payments still use the legacy numeric id shape.
+  const existing = state.fundPayments.findIndex(p =>
+    (p.period === periodName || p.period === periodId) && normName(p.member) === normName(member)
+  );
   const isUpdate = existing >= 0;
   const prevSnapshot = isUpdate ? { ...state.fundPayments[existing] } : null;
 
-  if (isUpdate) state.fundPayments[existing] = { ...state.fundPayments[existing], amount, note };
-  else state.fundPayments.push({ period: periodId, member, amount, note });
+  if (isUpdate) state.fundPayments[existing] = { ...state.fundPayments[existing], amount, note, period: periodName };
+  else state.fundPayments.push({ period: periodName, member, amount, note });
 
   save(); renderAll(); closeModal('modalFund');
 
@@ -1008,15 +1060,19 @@ function completeFixture(ts) {
 }
 
 // apiCall trả về object data từ server khi OK, null khi fail. Mọi caller dùng `if (!res)` để rollback.
+// 15s timeout — covers Apps Script cold start (6-8s) + Vercel BFF roundtrip + margin.
 async function apiCall(endpoint, method, body) {
   state.pendingWrites++;
+  const ctrl = new AbortController();
+  const timeoutId = setTimeout(() => ctrl.abort(), 15000);
   try {
     const url = endpoint.startsWith('/') ? API_BASE + endpoint : endpoint;
     const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined,
-      cache: 'no-store'
+      cache: 'no-store',
+      signal: ctrl.signal
     });
     if (!res.ok) {
       console.error('API non-OK:', endpoint, res.status);
@@ -1030,9 +1086,11 @@ async function apiCall(endpoint, method, body) {
     // Đảm bảo trả về truthy object kể cả khi server trả {} (rỗng)
     return data && Object.keys(data).length ? data : { status: 'ok' };
   } catch (e) {
-    console.error('API Error:', endpoint, e);
+    if (e.name === 'AbortError') console.error('API timeout (>15s):', endpoint);
+    else console.error('API Error:', endpoint, e);
     return null;
   } finally {
+    clearTimeout(timeoutId);
     state.pendingWrites = Math.max(0, state.pendingWrites - 1);
   }
 }
@@ -1081,39 +1139,60 @@ async function syncFromSheet(force = false) {
     console.warn('syncFromSheet: skipping — có write đang pending');
     return;
   }
+  // 15s timeout — slightly above the BFF's 12s so we surface BFF errors first.
+  // If the request hangs longer, it's almost certainly broken upstream.
+  const ctrl = new AbortController();
+  const timeoutId = setTimeout(() => ctrl.abort(), 15000);
   try {
     const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const url = isLocal 
+    const url = isLocal
       ? state.apiUrl + '?action=getAll&key=fc_manager_secret_2026'
       : '/api/init';
-      
-    const res = await fetch(url, { cache: 'no-store' });
+
+    const res = await fetch(url, { cache: 'no-store', signal: ctrl.signal });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     if (data && data.error) throw new Error(data.error);
-    if (Array.isArray(data.members)) { state.members = data.members; }
-    if (Array.isArray(data.matches)) { state.matches = data.matches; }
-    if (Array.isArray(data.fixtures)) { state.fixtures = data.fixtures; }
-    if (Array.isArray(data.fundPayments)) {
-      let orphanPeriodCount = 0;
-      const orphanPeriodSamples = new Set();
-      state.fundPayments = data.fundPayments.map(p => {
-        const raw = normPeriod(p.period);
-        const pd = FUND_PERIODS.find(f => normPeriod(f.name) === raw);
-        if (!pd) { orphanPeriodCount++; if (orphanPeriodSamples.size < 5) orphanPeriodSamples.add(raw); }
-        return { ...p, period: pd ? pd.id : 0, periodRaw: raw, amount: Number(p.amount) || 0 };
-      });
-      state.diagnostics = { orphanPeriodCount, orphanPeriodSamples: [...orphanPeriodSamples] };
-      if (orphanPeriodCount > 0) {
-        console.warn(`syncFromSheet: ${orphanPeriodCount} payment(s) have unrecognized period. Samples:`, [...orphanPeriodSamples]);
-      }
+
+    // EC-3 guard: reject partial responses. We expect all 4 arrays present.
+    // Without this, a partial response silently kept stale data in localStorage
+    // for whichever array was missing, producing the "Sheet has data, app doesn't" symptom.
+    const required = ['members', 'matches', 'fundPayments', 'fixtures'];
+    const missing = required.filter(k => !Array.isArray(data[k]));
+    if (missing.length) {
+      throw new Error(`Sync incomplete — missing arrays: ${missing.join(', ')}`);
     }
+
+    state.members = data.members;
+    state.matches = data.matches;
+    state.fixtures = data.fixtures;
+
+    let orphanPeriodCount = 0;
+    const orphanPeriodSamples = new Set();
+    state.fundPayments = data.fundPayments.map(p => {
+      const raw = normPeriod(p.period);
+      const pd = FUND_PERIODS.find(f => normPeriod(f.name) === raw);
+      if (!pd) { orphanPeriodCount++; if (orphanPeriodSamples.size < 5) orphanPeriodSamples.add(raw); }
+      // EC-6: store canonical period NAME (not positional id). Name is stable
+      // across FUND_PERIODS array reordering and survives module reload.
+      return { ...p, period: pd ? pd.name : raw, periodRaw: raw, amount: Number(p.amount) || 0 };
+    });
+    state.diagnostics = { orphanPeriodCount, orphanPeriodSamples: [...orphanPeriodSamples] };
+    if (orphanPeriodCount > 0) {
+      console.warn(`syncFromSheet: ${orphanPeriodCount} payment(s) have unrecognized period. Samples:`, [...orphanPeriodSamples]);
+    }
+
     state.initialSynced = true;
     save(); renderAll(); updateSyncStatus();
     showToast('Đồng bộ thành công ✅');
   } catch (e) {
     console.error('Sync error:', e);
-    showToast('Lỗi đồng bộ dữ liệu', 'error');
+    const msg = e.name === 'AbortError'
+      ? 'Đồng bộ quá lâu — kiểm tra mạng'
+      : `Lỗi đồng bộ: ${e.message || 'unknown'}`;
+    showToast(msg, 'error');
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

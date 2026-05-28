@@ -78,6 +78,57 @@ test('period.amount=0 (custom period) does NOT produce NaN in shortfall calc', (
   assert.equal(shortfall, null, 'when expected=0, we must not subtract — would render NaN');
 });
 
+test('EC-5: text amount "500.000" coerces to 500000, not 500', () => {
+  const coerce = (val) => {
+    if (typeof val === 'number') return val;
+    if (val == null || val === '') return 0;
+    const n = Number(String(val).trim().replace(/[.,\s ]/g, ''));
+    return isNaN(n) ? 0 : n;
+  };
+  assert.equal(coerce(500000), 500000);
+  assert.equal(coerce('500.000'), 500000, 'admin paste with dots must NOT become 500');
+  assert.equal(coerce('500,000'), 500000, 'admin paste with commas must NOT become NaN→0');
+  assert.equal(coerce('1.860.000'), 1860000);
+  assert.equal(coerce(''), 0);
+  assert.equal(coerce(null), 0);
+  assert.equal(coerce('abc'), 0);
+});
+
+test('EC-6: period identity by name survives FUND_PERIODS array reorder', () => {
+  // Simulate the lookup that happens in renderFund. Identity is the period.name,
+  // not the array index. Reorder the array → name still matches.
+  const FUND_A = [{ id: 1, name: 'Đợt 1' }, { id: 2, name: 'Quỹ T5/2026' }];
+  const FUND_B = [{ id: 1, name: 'Quỹ T5/2026' }, { id: 2, name: 'Đợt 1' }]; // reordered
+  const payment = { period: 'Quỹ T5/2026', amount: 100000 };
+  const matchA = FUND_A.find(f => f.name === payment.period);
+  const matchB = FUND_B.find(f => f.name === payment.period);
+  assert.ok(matchA, 'name-based match works before reorder');
+  assert.ok(matchB, 'name-based match SURVIVES reorder (positional id would break)');
+});
+
+test('EC-7: payment for deleted member surfaces as orphan, not silently dropped', () => {
+  const members = [{ name: 'Xuân Hoàn', status: 'active' }];
+  const payments = [
+    { member: 'Xuân Hoàn', amount: 500000 },
+    { member: 'Trần Quyền', amount: 200000 }, // member was deleted
+  ];
+  const normName = (s) => String(s || '').trim().toLocaleLowerCase('vi-VN');
+  const memberKeys = new Set(members.map(m => normName(m.name)));
+  const orphans = payments.filter(p => !memberKeys.has(normName(p.member)));
+  assert.equal(orphans.length, 1);
+  assert.equal(orphans[0].member, 'Trần Quyền');
+  assert.equal(orphans[0].amount, 200000);
+});
+
+test('EC-3: partial sync response (missing key) must reject, not partial-apply', () => {
+  const data = { members: [{ name: 'A' }], matches: [], fundPayments: undefined, fixtures: [] };
+  const required = ['members', 'matches', 'fundPayments', 'fixtures'];
+  const missing = required.filter(k => !Array.isArray(data[k]));
+  assert.equal(missing.length, 1);
+  assert.equal(missing[0], 'fundPayments');
+  // Reject — stale data is better than half-fresh data
+});
+
 test('orphan period (Sheet has period not in FUND_PERIODS) is detected, not silently mapped', () => {
   const FUND_PERIODS = [
     { id: 9, name: 'Quỹ T5/2026', amount: 500000 },

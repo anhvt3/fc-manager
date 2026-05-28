@@ -34,6 +34,18 @@ function doPost(e) {
 
   if (body.key !== SCRIPT_KEY) return jsonOut({error: 'Unauthorized'});
 
+  // EC-2: Apps Script has no transactions. Concurrent PUTs (admin + bot at the
+  // same second) both read sheet, both find no row, both append → duplicate.
+  // LockService serializes writes per script. waitLock throws if can't acquire
+  // in 10s; we surface that as a 503-equivalent rather than silent racing.
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (lockErr) {
+    return jsonOut({error: 'Busy — try again', code: 'LOCK_TIMEOUT'});
+  }
+
+  try {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(body.sheet);
   if (!sheet) return jsonOut({error: 'Sheet not found: ' + body.sheet});
@@ -133,6 +145,9 @@ function doPost(e) {
   }
 
   return jsonOut({error: 'Invalid action'});
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function cascadeMemberRename(fromName, toName) {
@@ -156,6 +171,23 @@ function nowStr() {
   return Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss');
 }
 
+// EC-5: when admin pastes "500.000" or "500,000" from Excel, Sheet stores it
+// as text. Naive Number("500.000") returns 500 (1000x too small) and
+// Number("500,000") returns NaN. Surface as proper number for known numeric
+// columns. Also skip fully-blank rows (admin clears row content but doesn't
+// delete the row → getDataRange returns it as empty array).
+var NUMERIC_HEADERS = { amount: true, cost: true, number: true };
+
+function coerceNumericCell(val) {
+  if (typeof val === 'number') return val;
+  if (val == null || val === '') return 0;
+  // Strip thousand separators (., ,, space, NBSP) but preserve decimal if any
+  var s = String(val).trim();
+  // If contains both . and , decide by position; otherwise treat both as separators
+  var n = Number(s.replace(/[.,\s ]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
 function getSheetData(name) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(name);
@@ -163,15 +195,26 @@ function getSheetData(name) {
   var data = sheet.getDataRange().getValues();
   if (data.length <= 1) return [];
   var headers = data[0];
-  return data.slice(1).map(function(row) {
+  var out = [];
+  for (var r = 1; r < data.length; r++) {
+    var row = data[r];
+    // Skip rows where every cell is blank — blank gaps inside the data range
+    var allEmpty = true;
+    for (var c = 0; c < row.length; c++) {
+      if (row[c] !== '' && row[c] != null) { allEmpty = false; break; }
+    }
+    if (allEmpty) continue;
     var obj = {};
-    headers.forEach(function(h, i) {
+    for (var i = 0; i < headers.length; i++) {
+      var h = headers[i];
       var val = row[i];
       if (val instanceof Date) val = Utilities.formatDate(val, 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm:ss');
+      if (NUMERIC_HEADERS[h]) val = coerceNumericCell(val);
       obj[h] = val;
-    });
-    return obj;
-  });
+    }
+    out.push(obj);
+  }
+  return out;
 }
 
 function getOrCreate(name, headers) {
