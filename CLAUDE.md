@@ -73,6 +73,15 @@ Zalo bot OCR + Gemini không deterministic. Khi bot misidentify member, sửa = 
 
 **Verify:** Google Sheets → File → Version history → trace ai ghi. Nếu phát hiện account lạ → revoke share.
 
+## Zalo bot gotchas (Python)
+
+- **One-shot send** từ local Python: dùng `zlapi.ZaloAPI(imei, cookies)` + `sendMessage(Message(text=...), GROUP_ID, ThreadType.GROUP)`. KHÔNG gọi `client.listen()` để tránh conflict websocket với bot đang chạy VPS.
+- **Windows console crash với Unicode**: `print(f"... Đ ...")` throw UnicodeEncodeError vì cp1252. Phải `sys.stdout.reconfigure(encoding='utf-8')` ở đầu script. Nếu crash sau `sendMessage` → tin đã gửi rồi, retry = gửi trùng. **Luôn wrap print sau sendMessage trong try/except hoặc dùng encode='utf-8' từ đầu**.
+- **`.env` ở `zalo-bot/.env`** có ZALO_IMEI, ZALO_COOKIE, ZALO_GROUP_ID, GEMINI_API_KEY, ZALO_CAPTAIN_ID.
+- **Cookie expire định kỳ** — cần refresh manual.
+- **Bot trên VPS** (setup_vps.sh), không phải local. `bot.log` local stale từ 13/5. Để biết bot làm gì gần đây → query Sheet timestamp + note "Zalo Bot auto" thay vì đọc log.
+- **Bot dùng PUT upsert** match (period, member) — sẽ **ăn mất** row truth nếu cùng tên + cùng period. Bot OCR sai 1 lần là phá data đúng. Fix dài hạn: bot dùng POST (append) thay vì PUT, frontend sum nhiều row.
+
 ## Apps Script gotchas
 
 - **Cold start 4-8s.** Vercel hobby timeout 10s → set `AbortController` 12s ở BFF, 15s ở frontend.
