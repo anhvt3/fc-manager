@@ -45,6 +45,24 @@ function doPost(e) {
     return jsonOut({error: 'Busy — try again', code: 'LOCK_TIMEOUT'});
   }
 
+  // EMERGENCY KILL-SWITCH: tạm chặn bot ghi/sửa Quỹ T5/2026 cho tới khi fix prompt Gemini.
+  // Bot đang nhận bill liên hoan (188K/375K/4.5M) và đè data đúng.
+  // Manual entries từ app có note rỗng hoặc khác → không bị chặn.
+  // Để tắt: xoá block này hoặc set BOT_BLOCK_T5 = false.
+  var BOT_BLOCK_T5 = true;
+  if (BOT_BLOCK_T5 && body.sheet === 'data.new.DongQuy') {
+    var _period = '';
+    var _note = '';
+    if (body.data && body.data.length >= 5) { _period = String(body.data[1] || ''); _note = String(body.data[4] || ''); }
+    if (!_period && body.matchValues && body.matchValues.length >= 2) _period = String(body.matchValues[1] || '');
+    var _isT5 = _period.indexOf('Quỹ T5/2026') >= 0 || _period.indexOf('T5/2026') >= 0;
+    var _isBot = _note.toLowerCase().indexOf('zalo bot') >= 0 || _note.toLowerCase().indexOf('bot auto') >= 0;
+    if (_isT5 && _isBot) {
+      lock.releaseLock();
+      return jsonOut({error: 'Bot tạm bị chặn cho Quỹ T5/2026 — sửa prompt Gemini trước rồi mở lại', code: 'BOT_BLOCKED_T5'});
+    }
+  }
+
   try {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(body.sheet);
