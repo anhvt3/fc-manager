@@ -60,8 +60,8 @@
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-title">Chi phí theo tháng</div>
+        <div class="card" onclick="openMonthlyReport()" style="cursor: pointer;" title="Xem báo cáo thu chi tháng">
+          <div class="card-title">Chi phí theo tháng <span style="float:right; font-size:0.7rem; color:var(--text-muted)">▸ chi tiết</span></div>
           <div class="chart-container">
             <canvas id="monthlyChart"></canvas>
           </div>
@@ -488,6 +488,44 @@
           <button class="btn btn-primary" onclick="connectApi()" style="margin-bottom:10px">Kết nối</button>
           <button class="btn btn-secondary" onclick="closeModal('modalSetup')">Dùng offline trước</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Monthly Report Modal -->
+    <div class="modal-overlay" id="modalMonthlyReport">
+      <div class="modal modal-report">
+        <div class="modal-handle"></div>
+        <h2 id="reportTitle">📊 Báo cáo tháng</h2>
+
+        <div class="report-chips" id="reportChips"></div>
+
+        <div class="report-card report-card-thu">
+          <div class="report-card-head">
+            <span class="report-card-label">📈 THU</span>
+            <span class="report-card-meta" id="reportThuCount">—</span>
+          </div>
+          <div class="report-card-value positive" id="reportThu">0đ</div>
+          <div class="report-list" id="reportThuList"></div>
+        </div>
+
+        <div class="report-card report-card-chi">
+          <div class="report-card-head">
+            <span class="report-card-label">📉 CHI</span>
+            <span class="report-card-meta" id="reportChiCount">—</span>
+          </div>
+          <div class="report-card-value negative" id="reportChi">0đ</div>
+          <div class="report-list" id="reportChiList"></div>
+        </div>
+
+        <div class="report-card report-card-balance">
+          <div class="report-card-head">
+            <span class="report-card-label">⚖️ CHÊNH LỆCH (Thu - Chi)</span>
+            <span class="report-card-meta" id="reportBalanceLabel">—</span>
+          </div>
+          <div class="report-card-value" id="reportBalance">0đ</div>
+        </div>
+
+        <button class="btn btn-secondary" onclick="closeModal('modalMonthlyReport')" style="width:100%; margin-top:16px">Đóng</button>
       </div>
     </div>
 

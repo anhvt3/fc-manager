@@ -405,6 +405,75 @@ function renderFund() {
   document.getElementById('fundList').innerHTML = html + orphanHtml;
 }
 
+// Monthly Thu/Chi report — opened from "Chi phí theo tháng" card on Dashboard.
+// Pivots state.fundPayments (by Quỹ T{m}/{y} period name) + state.matches (by date YYYY-MM).
+function openMonthlyReport() {
+  const now = new Date();
+  const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  state.monthlyReportMonth = key;
+  renderMonthlyReport();
+  openModal('modalMonthlyReport');
+}
+
+function selectReportMonth(monthKey) {
+  state.monthlyReportMonth = monthKey;
+  renderMonthlyReport();
+}
+
+function renderMonthlyReport() {
+  const m = state.monthlyReportMonth;
+  if (!m) return;
+  const [y, mm] = m.split('-');
+  const monthNum = parseInt(mm, 10);
+  const yearNum = parseInt(y, 10);
+  const periodName = `Quỹ T${monthNum}/${yearNum}`;
+  const labelShort = `T${monthNum}/${yearNum}`;
+
+  document.getElementById('reportTitle').textContent = `📊 Báo cáo ${labelShort}`;
+
+  // 3 chips: tháng hiện tại + 2 tháng trước
+  const now = new Date();
+  const chips = [];
+  for (let i = 0; i < 3; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    chips.push({ key: k, label: `T${d.getMonth() + 1}/${String(d.getFullYear()).slice(2)}` });
+  }
+  document.getElementById('reportChips').innerHTML = chips.map(c =>
+    `<div class="month-chip ${c.key === m ? 'active' : ''}" onclick="selectReportMonth('${c.key}')">${c.label}</div>`
+  ).join('');
+
+  // THU: fund payments với period name khớp tháng (case + whitespace tolerant)
+  const want = normPeriod(periodName);
+  const fundRows = state.fundPayments.filter(p =>
+    normPeriod(p.periodRaw || p.period) === want || p.period === periodName
+  );
+  const thu = fundRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  document.getElementById('reportThu').textContent = fmt(thu) + 'đ';
+  document.getElementById('reportThuCount').textContent = `${fundRows.length} lần đóng`;
+  document.getElementById('reportThuList').innerHTML = fundRows
+    .sort((a, b) => String(a.timestamp || '').localeCompare(String(b.timestamp || '')))
+    .map(r => `<div class="report-row"><span class="report-row-name">${r.member}</span><span class="report-row-amount positive">+${fmt(r.amount)}đ</span></div>`)
+    .join('') || '<div class="report-empty">Chưa có lượt nộp quỹ</div>';
+
+  // CHI: matches với date trong tháng đó
+  const matchRows = state.matches.filter(mt => String(mt.date || '').substring(0, 7) === m);
+  const chi = matchRows.reduce((s, mt) => s + (Number(mt.cost) || 0), 0);
+  document.getElementById('reportChi').textContent = fmt(chi) + 'đ';
+  document.getElementById('reportChiCount').textContent = `${matchRows.length} trận`;
+  document.getElementById('reportChiList').innerHTML = matchRows
+    .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
+    .map(mt => `<div class="report-row"><span class="report-row-name">${fmtDate(mt.date)} · ${mt.opponent || mt.result || '—'}</span><span class="report-row-amount negative">-${fmt(mt.cost)}đ</span></div>`)
+    .join('') || '<div class="report-empty">Chưa có trận đấu</div>';
+
+  // CHÊNH LỆCH
+  const balance = thu - chi;
+  const balEl = document.getElementById('reportBalance');
+  balEl.textContent = (balance < 0 ? '-' : '') + fmt(Math.abs(balance)) + 'đ';
+  balEl.className = 'report-card-value ' + (balance >= 0 ? 'positive' : 'negative');
+  document.getElementById('reportBalanceLabel').textContent = balance >= 0 ? `Dư ${labelShort}` : `Âm ${labelShort}`;
+}
+
 function changeFundPeriod(dir) {
   const next = state.currentFundPeriod + dir;
   if (next >= 1 && next <= FUND_PERIODS.length) {

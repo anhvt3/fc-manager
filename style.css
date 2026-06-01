@@ -361,6 +361,41 @@ body {
 .fund-status.partial { background: rgba(245,158,11,0.15); color: var(--warning); }
 .paused-tag { color: var(--text-muted); font-size: 0.7rem; font-weight: 400; }
 
+/* Monthly Report Modal */
+.modal-report { max-height: 90vh; overflow-y: auto; }
+.report-chips { display: flex; gap: 8px; margin: 12px 0 16px; flex-wrap: wrap; }
+.report-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  margin-bottom: 12px;
+  border-left: 4px solid var(--border);
+}
+.report-card-thu { border-left-color: var(--win); }
+.report-card-chi { border-left-color: var(--lose); }
+.report-card-balance { border-left-color: var(--info); background: linear-gradient(180deg, var(--bg-card), var(--bg-card-hover)); }
+.report-card-head { display: flex; justify-content: space-between; align-items: center; }
+.report-card-label { font-size: 0.75rem; color: var(--text-secondary); font-weight: 700; letter-spacing: 0.5px; }
+.report-card-meta { font-size: 0.7rem; color: var(--text-muted); }
+.report-card-value { font-size: 1.6rem; font-weight: 800; margin-top: 6px; }
+.report-card-value.positive { color: var(--win); }
+.report-card-value.negative { color: var(--lose); }
+.report-list { margin-top: 10px; max-height: 180px; overflow-y: auto; }
+.report-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+.report-row:last-child { border-bottom: none; }
+.report-row-name { color: var(--text-secondary); flex: 1; margin-right: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.report-row-amount { font-weight: 700; font-size: 0.8rem; }
+.report-row-amount.positive { color: var(--win); }
+.report-row-amount.negative { color: var(--lose); }
+.report-empty { color: var(--text-muted); font-size: 0.8rem; padding: 8px 0; text-align: center; }
+
 /* Member card */
 .member-card {
   display: flex;
