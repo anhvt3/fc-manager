@@ -344,6 +344,78 @@ if (typeof window !== 'undefined') {
   window.exportXLSX = exportXLSX;
 }
 
+// IMPORT: nạp lại data từ file backup (JSON hoặc XLSX) vào localStorage.
+// Khi /api/init fail (Sheet bị xóa), đây là cách restore state để app tiếp tục dùng.
+function importBackup() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,.xlsx';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      let parsed;
+      if (file.name.endsWith('.json')) {
+        const text = await file.text();
+        parsed = JSON.parse(text);
+      } else if (file.name.endsWith('.xlsx')) {
+        if (typeof XLSX === 'undefined') {
+          showToast('Lib XLSX chưa load, thử lại 2s sau', 'error');
+          return;
+        }
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf);
+        const sheetToRows = (name) => {
+          const ws = wb.Sheets[name];
+          return ws ? XLSX.utils.sheet_to_json(ws) : [];
+        };
+        parsed = {
+          members: sheetToRows('ThanhVien'),
+          matches: sheetToRows('TranDau'),
+          fundPayments: sheetToRows('DongQuy'),
+          fixtures: sheetToRows('LichThiDau'),
+        };
+      } else {
+        showToast('File không hỗ trợ — chỉ .json hoặc .xlsx', 'error');
+        return;
+      }
+
+      const counts = {
+        members: (parsed.members || []).length,
+        matches: (parsed.matches || []).length,
+        fundPayments: (parsed.fundPayments || []).length,
+        fixtures: (parsed.fixtures || []).length,
+      };
+      const msg = `Import: ${counts.members}m / ${counts.matches}t / ${counts.fundPayments}q / ${counts.fixtures}f\n\nĐè lên cache hiện tại?`;
+      if (!confirm(msg)) return;
+
+      if (Array.isArray(parsed.members)) state.members = parsed.members;
+      if (Array.isArray(parsed.matches)) state.matches = parsed.matches;
+      if (Array.isArray(parsed.fixtures)) state.fixtures = parsed.fixtures;
+      if (Array.isArray(parsed.fundPayments)) {
+        // Re-normalize period: cache cũ có period là id (number), backup gốc có name (string)
+        state.fundPayments = parsed.fundPayments.map(p => {
+          const raw = normPeriod(p.periodRaw || p.period);
+          const pd = FUND_PERIODS.find(f => normPeriod(f.name) === raw);
+          return { ...p, period: pd ? pd.name : raw, periodRaw: raw, amount: Number(p.amount) || 0 };
+        });
+      }
+      state.initialSynced = true;
+      save();
+      renderAll();
+      updateSyncStatus();
+      showToast(`✅ Đã import ${counts.members + counts.matches + counts.fundPayments + counts.fixtures} dòng`, 'success');
+    } catch (err) {
+      console.error('Import error:', err);
+      showToast(`Lỗi import: ${err.message}`, 'error');
+    }
+  };
+  input.click();
+}
+if (typeof window !== 'undefined') {
+  window.importBackup = importBackup;
+}
+
 function renderAll() {
   renderDashboard();
   renderMatches();
