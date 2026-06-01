@@ -695,9 +695,22 @@ function renderFund() {
 // Monthly Thu/Chi report — opened from "Chi phí theo tháng" card on Dashboard.
 // Pivots state.fundPayments (by Quỹ T{m}/{y} period name) + state.matches (by date YYYY-MM).
 function openMonthlyReport() {
+  // Default: tháng gần nhất có data (Thu hoặc Chi). Nếu T6 trống → T5, ...
+  // Tránh trường hợp đầu tháng modal mở ra toàn 0đ.
   const now = new Date();
-  const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  state.monthlyReportMonth = key;
+  let pickedKey = null;
+  for (let i = 0; i < 3; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const periodName = `Quỹ T${d.getMonth() + 1}/${d.getFullYear()}`;
+    const hasThu = state.fundPayments.some(p =>
+      normPeriod(p.periodRaw || p.period) === normPeriod(periodName)
+    );
+    const hasChi = state.matches.some(m => String(m.date || '').substring(0, 7) === key);
+    if (hasThu || hasChi) { pickedKey = key; break; }
+    if (i === 0) pickedKey = key; // fallback: tháng hiện tại nếu cả 3 đều trống
+  }
+  state.monthlyReportMonth = pickedKey;
   renderMonthlyReport();
   openModal('modalMonthlyReport');
 }
