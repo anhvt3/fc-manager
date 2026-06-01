@@ -229,6 +229,67 @@ if (typeof window !== 'undefined') {
   window.exportBackup = exportBackup;
 }
 
+// CSV export: 4 file (members, matches, funds, fixtures) tải lần lượt.
+// Excel/Sheets mở được trực tiếp. BOM UTF-8 để giữ tiếng Việt.
+function toCSV(rows, columns) {
+  if (!rows || rows.length === 0) return '﻿' + columns.join(',') + '\n';
+  const esc = (v) => {
+    const s = v == null ? '' : String(v);
+    if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  };
+  const head = columns.join(',');
+  const body = rows.map(r => columns.map(c => esc(r[c])).join(',')).join('\n');
+  return '﻿' + head + '\n' + body + '\n';
+}
+
+function downloadFile(filename, content, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function exportCSV() {
+  const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const files = [
+    { name: `fc-members-${ts}.csv`, rows: state.members || [], cols: ['name', 'role', 'number', 'size', 'status'] },
+    { name: `fc-matches-${ts}.csv`, rows: state.matches || [], cols: ['timestamp', 'date', 'opponent', 'venue', 'result', 'cost', 'note'] },
+    { name: `fc-fund-${ts}.csv`, rows: state.fundPayments || [], cols: ['timestamp', 'period', 'member', 'amount', 'note'] },
+    { name: `fc-fixtures-${ts}.csv`, rows: state.fixtures || [], cols: ['timestamp', 'date', 'opponent', 'venue', 'kitColor', 'status', 'note'] },
+  ];
+  let i = 0;
+  const next = () => {
+    if (i >= files.length) {
+      showToast(`Đã tải ${files.length} file CSV ✓`, 'success');
+      return;
+    }
+    const f = files[i++];
+    // Normalize fund rows: period có thể là string name hoặc number id từ cache cũ
+    let rows = f.rows;
+    if (f.name.includes('fund')) {
+      rows = rows.map(r => ({
+        ...r,
+        period: r.periodRaw || (typeof r.period === 'string' ? r.period : (FUND_PERIODS[r.period - 1] || {}).name || r.period)
+      }));
+    }
+    downloadFile(f.name, toCSV(rows, f.cols), 'text/csv;charset=utf-8');
+    setTimeout(next, 400); // pacing để browser không gộp/reject downloads
+  };
+  next();
+}
+
+if (typeof window !== 'undefined') {
+  window.exportCSV = exportCSV;
+}
+
 function renderAll() {
   renderDashboard();
   renderMatches();

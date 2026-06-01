@@ -23,7 +23,8 @@
           <div class="header-subtitle">Quản lý thu chi đội bóng</div>
         </div>
         <div style="display:flex; gap:8px; align-items:center;">
-          <button onclick="exportBackup()" title="Tải backup JSON từ localStorage" style="background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid #f59e0b; border-radius:8px; padding:4px 10px; font-size:0.75rem; cursor:pointer; font-weight:700;">💾 Backup</button>
+          <button onclick="exportBackup()" title="Tải backup JSON từ localStorage" style="background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid #f59e0b; border-radius:8px; padding:4px 8px; font-size:0.7rem; cursor:pointer; font-weight:700;">💾 JSON</button>
+          <button onclick="exportCSV()" title="Tải 4 file CSV (members/matches/funds/fixtures)" style="background:rgba(16,185,129,0.15); color:var(--win); border:1px solid var(--win); border-radius:8px; padding:4px 8px; font-size:0.7rem; cursor:pointer; font-weight:700;">📋 CSV</button>
           <div class="sync-status" id="syncStatus" onclick="showSetup()">
             <span class="sync-dot" id="syncDot"></span>
             <span id="syncText">Đang kết nối...</span>
