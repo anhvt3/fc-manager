@@ -34,9 +34,15 @@ function init() {
   updateSyncStatus();
   renderAll();
   syncFromSheet();
-  // Deep-link: #monthly-report mở thẳng báo cáo tháng. Tiện share URL.
-  if (window.location.hash === '#monthly-report') {
-    setTimeout(() => openMonthlyReport(), 800);
+  // Deep-link: #monthly-report mở báo cáo tháng hiện tại.
+  //            #monthly-report/2026-05 mở báo cáo tháng cụ thể.
+  const hash = window.location.hash || '';
+  if (hash.startsWith('#monthly-report')) {
+    const m = hash.match(/#monthly-report\/(\d{4}-\d{2})/);
+    setTimeout(() => {
+      openMonthlyReport();
+      if (m) selectReportMonth(m[1]);
+    }, 800);
   }
 }
 
