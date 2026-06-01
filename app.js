@@ -42,7 +42,9 @@ function init() {
     // Poll until first sync done so cached/empty state không hiện 0đ giả.
     let tries = 0;
     const waitSyncThenOpen = () => {
-      if (state.initialSynced || tries++ > 25) {
+      // Mở khi sync xong VÀ thực sự có data, hoặc sau 60 lần (~12s).
+      const hasData = (state.fundPayments && state.fundPayments.length > 0) || (state.matches && state.matches.length > 0);
+      if ((state.initialSynced && hasData) || tries++ > 60) {
         openMonthlyReport();
         if (m) selectReportMonth(m[1]);
       } else {
