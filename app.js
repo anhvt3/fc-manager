@@ -34,6 +34,10 @@ function init() {
   updateSyncStatus();
   renderAll();
   syncFromSheet();
+  // Deep-link: #monthly-report mở thẳng báo cáo tháng. Tiện share URL.
+  if (window.location.hash === '#monthly-report') {
+    setTimeout(() => openMonthlyReport(), 800);
+  }
 }
 
 // EC-9: localStorage can throw — QuotaExceededError on huge growth, SecurityError
