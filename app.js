@@ -290,6 +290,60 @@ if (typeof window !== 'undefined') {
   window.exportCSV = exportCSV;
 }
 
+// XLSX export: 1 file Excel có 4 sheet (Members / Matches / Fund / Fixtures).
+// Mở trực tiếp được trong Excel/OnlyOffice/Google Sheets giữ nguyên tab structure.
+function exportXLSX() {
+  if (typeof XLSX === 'undefined') {
+    showToast('Lib XLSX chưa load, thử lại sau 2s', 'error');
+    return;
+  }
+  const fundRows = (state.fundPayments || []).map(r => ({
+    timestamp: r.timestamp || '',
+    period: r.periodRaw || (typeof r.period === 'string' ? r.period : (FUND_PERIODS[r.period - 1] || {}).name || ''),
+    member: r.member || '',
+    amount: Number(r.amount) || 0,
+    note: r.note || '',
+  }));
+  const memberRows = (state.members || []).map(r => ({
+    name: r.name || '',
+    role: r.role || '',
+    number: r.number || '',
+    size: r.size || '',
+    status: r.status || '',
+  }));
+  const matchRows = (state.matches || []).map(r => ({
+    timestamp: r.timestamp || '',
+    date: r.date || '',
+    opponent: r.opponent || '',
+    venue: r.venue || '',
+    result: r.result || '',
+    cost: Number(r.cost) || 0,
+    note: r.note || '',
+  }));
+  const fixtureRows = (state.fixtures || []).map(r => ({
+    timestamp: r.timestamp || '',
+    date: r.date || '',
+    opponent: r.opponent || '',
+    venue: r.venue || '',
+    kitColor: r.kitColor || '',
+    status: r.status || '',
+    note: r.note || '',
+  }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(memberRows), 'ThanhVien');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(matchRows), 'TranDau');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(fundRows), 'DongQuy');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(fixtureRows), 'LichThiDau');
+
+  const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  XLSX.writeFile(wb, `fc-backup-${ts}.xlsx`);
+  showToast(`Đã tải XLSX: ${memberRows.length}m / ${matchRows.length}t / ${fundRows.length}q / ${fixtureRows.length}f`, 'success');
+}
+if (typeof window !== 'undefined') {
+  window.exportXLSX = exportXLSX;
+}
+
 function renderAll() {
   renderDashboard();
   renderMatches();
