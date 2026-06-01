@@ -484,30 +484,75 @@ function renderWinRateChart(w, l, d) {
 
 let monthChart = null;
 function renderMonthlyChart() {
-  const months = {};
+  // Aggregate Chi (matches.cost) and Thu (fundPayments mapped to Quỹ T{m}/{y} period)
+  const chiByMonth = {};
   state.matches.forEach(m => {
     const k = getMonthKey(m.date);
     if (!k) return;
-    months[k] = (months[k] || 0) + (Number(m.cost) || 0);
+    chiByMonth[k] = (chiByMonth[k] || 0) + (Number(m.cost) || 0);
   });
-  const keys = Object.keys(months).sort();
+  const thuByMonth = {};
+  state.fundPayments.forEach(p => {
+    const period = String(p.periodRaw || p.period || '');
+    // Match Quỹ T{m}/{y} format → "YYYY-MM" key
+    const mm = period.match(/T0?(\d{1,2})\/(\d{4})/);
+    if (!mm) return; // skip Đợt 1-7 (không thuộc tháng nào)
+    const key = `${mm[2]}-${String(mm[1]).padStart(2, '0')}`;
+    thuByMonth[key] = (thuByMonth[key] || 0) + (Number(p.amount) || 0);
+  });
+
+  // Union keys, sort chronologically
+  const keys = [...new Set([...Object.keys(chiByMonth), ...Object.keys(thuByMonth)])].sort();
   const labels = keys.map(k => { const [y, m] = k.split('-'); return `T${+m}/${y.slice(2)}`; });
+  const thuData = keys.map(k => thuByMonth[k] || 0);
+  const chiData = keys.map(k => chiByMonth[k] || 0);
+
   const canvas = document.getElementById('monthlyChart');
   if (monthChart) monthChart.destroy();
   monthChart = new Chart(canvas, {
     type: 'bar',
     data: {
       labels,
-      datasets: [{
-        data: keys.map(k => months[k]),
-        backgroundColor: 'rgba(16,185,129,0.3)',
-        borderColor: '#10b981',
-        borderWidth: 1, borderRadius: 6
-      }]
+      datasets: [
+        {
+          label: 'Thu',
+          data: thuData,
+          backgroundColor: 'rgba(16,185,129,0.7)',
+          borderColor: '#10b981',
+          borderWidth: 1,
+          borderRadius: 4,
+        },
+        {
+          label: 'Chi',
+          data: chiData,
+          backgroundColor: 'rgba(239,68,68,0.7)',
+          borderColor: '#ef4444',
+          borderWidth: 1,
+          borderRadius: 4,
+        }
+      ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          align: 'end',
+          labels: { color: '#9ca3af', font: { size: 10 }, boxWidth: 12, boxHeight: 8, padding: 8 }
+        },
+        tooltip: {
+          callbacks: {
+            afterBody: (items) => {
+              const i = items[0]?.dataIndex;
+              if (i == null) return '';
+              const balance = (thuData[i] || 0) - (chiData[i] || 0);
+              const prefix = balance >= 0 ? 'Dư' : 'Âm';
+              return `${prefix}: ${fmt(Math.abs(balance))}đ`;
+            }
+          }
+        }
+      },
       scales: {
         x: { ticks: { color: '#6b7280', font: { size: 9 } }, grid: { display: false } },
         y: { ticks: { color: '#6b7280', font: { size: 9 }, callback: v => fmt(v) }, grid: { color: '#333a4a' } }
