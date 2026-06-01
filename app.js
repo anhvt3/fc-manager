@@ -39,10 +39,17 @@ function init() {
   const hash = window.location.hash || '';
   if (hash.startsWith('#monthly-report')) {
     const m = hash.match(/#monthly-report\/(\d{4}-\d{2})/);
-    setTimeout(() => {
-      openMonthlyReport();
-      if (m) selectReportMonth(m[1]);
-    }, 800);
+    // Poll until first sync done so cached/empty state không hiện 0đ giả.
+    let tries = 0;
+    const waitSyncThenOpen = () => {
+      if (state.initialSynced || tries++ > 25) {
+        openMonthlyReport();
+        if (m) selectReportMonth(m[1]);
+      } else {
+        setTimeout(waitSyncThenOpen, 200);
+      }
+    };
+    setTimeout(waitSyncThenOpen, 300);
   }
 }
 
