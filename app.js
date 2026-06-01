@@ -37,6 +37,9 @@ function init() {
   // Deep-link: #monthly-report mở báo cáo tháng hiện tại.
   //            #monthly-report/2026-05 mở báo cáo tháng cụ thể.
   const hash = window.location.hash || '';
+  if (hash === '#export') {
+    setTimeout(exportBackup, 500);
+  }
   if (hash.startsWith('#monthly-report')) {
     const m = hash.match(/#monthly-report\/(\d{4}-\d{2})/);
     // Poll until first sync done so cached/empty state không hiện 0đ giả.
@@ -192,6 +195,39 @@ function handleFabClick() {
 }
 
 function showSetup() { openModal('modalSetup'); }
+
+// EMERGENCY backup: dump localStorage state → tải về JSON. Khi /api/init fail
+// (Sheet bị xóa), đây là source of truth còn lại trên thiết bị.
+function exportBackup() {
+  const data = {
+    exportedAt: new Date().toISOString(),
+    note: 'FC Manager localStorage snapshot at last successful sync',
+    members: state.members,
+    matches: state.matches,
+    fundPayments: state.fundPayments,
+    fixtures: state.fixtures,
+    counts: {
+      members: (state.members || []).length,
+      matches: (state.matches || []).length,
+      fundPayments: (state.fundPayments || []).length,
+      fixtures: (state.fixtures || []).length,
+    },
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `fc-backup-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast(`Đã tải backup: ${data.counts.members}m / ${data.counts.matches}t / ${data.counts.fundPayments}q`, 'success');
+}
+// Cho phép trigger qua console hoặc hash #export
+if (typeof window !== 'undefined') {
+  window.exportBackup = exportBackup;
+}
 
 function renderAll() {
   renderDashboard();
