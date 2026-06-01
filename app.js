@@ -24,10 +24,18 @@ function safeParse(key, fallback) {
 
 function init() {
   state.apiUrl = localStorage.getItem('fc_api_url') || DEFAULT_API_URL;
+  // Sheet bị xóa → hardcode snapshot vào data.js. Khi bump DATA_VERSION:
+  // wipe localStorage để mọi device tự load data mới mà không cần Import thủ công.
+  try {
+    if (typeof DATA_VERSION !== 'undefined' && localStorage.getItem('fc_data_version') !== DATA_VERSION) {
+      ['fc_members', 'fc_matches', 'fc_fund', 'fc_fixtures'].forEach(k => localStorage.removeItem(k));
+      localStorage.setItem('fc_data_version', DATA_VERSION);
+    }
+  } catch (e) { /* localStorage có thể bị chặn (incognito) — bỏ qua */ }
   state.members = safeParse('fc_members', null) || [...INITIAL_MEMBERS];
   state.matches = safeParse('fc_matches', null) || [...INITIAL_MATCHES];
   state.fundPayments = safeParse('fc_fund', null) || [...INITIAL_FUND_PAYMENTS];
-  state.fixtures = safeParse('fc_fixtures', null) || [];
+  state.fixtures = safeParse('fc_fixtures', null) || [...(typeof INITIAL_FIXTURES !== 'undefined' ? INITIAL_FIXTURES : [])];
   const currentMonthName = `Quỹ T${new Date().getMonth() + 1}/${new Date().getFullYear()}`;
   const currentPeriod = FUND_PERIODS.find(p => p.name === currentMonthName);
   state.currentFundPeriod = currentPeriod ? currentPeriod.id : FUND_PERIODS.length;
