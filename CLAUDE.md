@@ -133,6 +133,32 @@ clasp push -f
 curl.exe -s "https://fcfriend.vercel.app/api/init" | head -c 500
 ```
 
+## 🟠 SESSION PAUSE 2026-06-01
+
+Đội trưởng tạm ngưng sử dụng. Khi anh báo lại mới resume. Trạng thái khi pause:
+
+- **Google Sheet `1p9IvYqw...`**: BỊ XÓA. Owner đang tìm lại trong Drive Trash.
+- **Apps Script deployment URL** (`AKfycbzg...PKtdSA/exec`): 404 do Sheet gone.
+- **Zalo Bot VPS**: anh tự SSH stop hoặc cứ kệ — bot POST sẽ fail im lặng vì Apps Script chết, không phá data được nữa.
+- **App fcfriend.vercel.app**: VẪN CHẠY với hardcode data ở `data.js` (commit `37e9d0b`, `DATA_VERSION="2026-06-01-snapshot-v1"`).
+  - Mọi device mở app vẫn xem được Dashboard / Quỹ / Trận / Báo cáo tháng đầy đủ.
+  - Edit qua UI: local-only (sync fail). Lỗi mất khi clear cache.
+- **Backup local** ở `C:\Users\Admin\Downloads\fc-manager\`:
+  - `fc-backup-2026-06-01T07-22-40.json` — master snapshot (89 funds, 86 matches, 20 members, 18 fixtures)
+  - 4 file CSV + 1 XLSX export song song
+  - GIỮ KỸ — đây là last known good state nếu Sheet không recover.
+
+## Khi anh báo resume — checklist 4 bước
+
+1. **Sheet status**: anh check Drive Trash recover, hoặc tạo Sheet mới với cùng 4 tab `data.new.ThanhVien` / `TranDau` / `DongQuy` / `LichThiDau`.
+2. **Apps Script**:
+   - Nếu Sheet cũ recover → deployment URL có thể vẫn live, em curl test.
+   - Nếu Sheet mới → tạo Apps Script attached, paste `Code.gs` từ repo, deploy → lấy URL mới.
+3. **Vercel env**: update `APPS_SCRIPT_URL` nếu URL đổi.
+4. **Migrate data**:
+   - Em POST 89 funds + 87 matches + 20 members + 18 fixtures từ `data.js` lên Sheet mới (1 script `_migrate.mjs`).
+   - Bump `DATA_VERSION` để mọi device wipe localStorage hardcode, sync từ Sheet sạch.
+
 ## What's still broken (not yet fixed)
 
 - H-1 SECURITY: zero auth trên `/api/*` (rotation chưa làm, key đã leak qua git)
