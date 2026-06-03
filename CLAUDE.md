@@ -139,7 +139,11 @@ curl.exe -s "https://fcfriend.vercel.app/api/init" | head -c 500
 
 - **Google Sheet `1p9IvYqw...`**: BỊ XÓA. Owner đang tìm lại trong Drive Trash.
 - **Apps Script deployment URL** (`AKfycbzg...PKtdSA/exec`): 404 do Sheet gone.
-- **Zalo Bot VPS**: anh tự SSH stop hoặc cứ kệ — bot POST sẽ fail im lặng vì Apps Script chết, không phá data được nữa.
+- **Zalo Bot VPS**: ✓ **STOPPED** 2026-06-03 04:49 PT.
+  - GCP project: `gen-lang-client-0477918284`
+  - Instance: `fc-zalo-bot` zone `us-central1-a` (e2-micro, IP 34.9.100.126)
+  - Auth via `ctvyoko02@gmail.com` (gcloud sdk đã cài + auth sẵn trên máy anh).
+  - Restart: `gcloud compute instances start fc-zalo-bot --zone=us-central1-a --project=gen-lang-client-0477918284`
 - **App fcfriend.vercel.app**: VẪN CHẠY với hardcode data ở `data.js` (commit `37e9d0b`, `DATA_VERSION="2026-06-01-snapshot-v1"`).
   - Mọi device mở app vẫn xem được Dashboard / Quỹ / Trận / Báo cáo tháng đầy đủ.
   - Edit qua UI: local-only (sync fail). Lỗi mất khi clear cache.
